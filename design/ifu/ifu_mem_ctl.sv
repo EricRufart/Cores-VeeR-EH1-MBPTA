@@ -15,7 +15,6 @@
 // limitations under the License.
 //********************************************************************************
 
-
 //********************************************************************************
 // Function: Icache , iccm  control
 // BFF -> F1 -> F2 -> A
@@ -483,7 +482,8 @@ module ifu_mem_ctl
 
    assign uncacheable_miss_in   = sel_hold_imb ? uncacheable_miss_ff : ifc_fetch_uncacheable_f1 ;
    assign imb_in[31:1]          = sel_hold_imb ? imb_ff[31:1] : {fetch_addr_f1[31:1]} ;
-   assign way_status_mb_in[2:0] = ( miss_pending) ? way_status_mb_ff[2:0] : {way_status[2:0]} ;
+   //assign way_status_mb_in[2:0] = ( miss_pending) ? way_status_mb_ff[2:0] : {way_status[2:0]} ;
+   lfsr_prng #() lfsr (.*, .clk(fetch_f1_f2_c1_clk), .output_number_o(way_status_mb_in));
    assign tagv_mb_in[3:0]       = ( miss_pending) ? tagv_mb_ff[3:0]       : {ic_tag_valid[3:0]} ;
 
    assign reset_ic_in           = miss_pending  &  (reset_all_tags |  reset_ic_ff) ;
@@ -500,13 +500,12 @@ module ifu_mem_ctl
 
    assign vaddr_f2[3:1] = ifu_fetch_addr_int_f2[3:1] ;
 
-
    rvdff_fpga #(1)  unc_miss_ff        (.*, .clk(fetch_f1_f2_c1_clk), .clken(fetch_f1_f2_c1_clken), .rawclk(clk), .din (uncacheable_miss_in),     .dout(uncacheable_miss_ff));
    rvdff_fpga #(3)  mb_rep_wayf2_ff    (.*, .clk(fetch_f1_f2_c1_clk), .clken(fetch_f1_f2_c1_clken), .rawclk(clk), .din ({way_status_mb_in[2:0]}), .dout({way_status_mb_ff[2:0]}));
    rvdff_fpga #(4)  mb_tagv_ff         (.*, .clk(fetch_f1_f2_c1_clk), .clken(fetch_f1_f2_c1_clken), .rawclk(clk), .din ({tagv_mb_in[3:0]}),       .dout({tagv_mb_ff[3:0]}));
    rvdff_fpga #(1) ifu_iccm_acc_ff     (.*, .clk(fetch_f1_f2_c1_clk), .clken(fetch_f1_f2_c1_clken), .rawclk(clk), .din(ifc_iccm_access_f1),       .dout(ifc_iccm_access_f2));
    rvdff_fpga #(1) ifu_iccm_reg_acc_ff (.*, .clk(fetch_f1_f2_c1_clk), .clken(fetch_f1_f2_c1_clken), .rawclk(clk), .din(ifc_region_acc_fault_final_f1), .dout(ifc_region_acc_fault_f2));
-
+   
    rvdffe #(31) imb_f2_ff       (.*, .en(fetch_f1_f2_c1_clken), .din ({imb_in[31:1]}), .dout({imb_ff[31:1]}));
 
    assign ifc_fetch_req_qual_f1  = ifc_fetch_req_f1  & ~((miss_state == CRIT_WRD_RDY) & flush_final_f2) ;// & ~exu_flush_final ;
