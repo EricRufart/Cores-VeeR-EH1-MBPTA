@@ -482,8 +482,13 @@ module ifu_mem_ctl
 
    assign uncacheable_miss_in   = sel_hold_imb ? uncacheable_miss_ff : ifc_fetch_uncacheable_f1 ;
    assign imb_in[31:1]          = sel_hold_imb ? imb_ff[31:1] : {fetch_addr_f1[31:1]} ;
-   //assign way_status_mb_in[2:0] = ( miss_pending) ? way_status_mb_ff[2:0] : {way_status[2:0]} ;
+
+`ifdef RV_ICACHE_RANDOM_PLACEMENT
    lfsr_prng #() lfsr (.*, .clk(fetch_f1_f2_c1_clk), .output_number_o(way_status_mb_in));
+`else
+    assign way_status_mb_in[2:0] = ( miss_pending) ? way_status_mb_ff[2:0] : {way_status[2:0]} ;
+`endif
+
    assign tagv_mb_in[3:0]       = ( miss_pending) ? tagv_mb_ff[3:0]       : {ic_tag_valid[3:0]} ;
 
    assign reset_ic_in           = miss_pending  &  (reset_all_tags |  reset_ic_ff) ;
