@@ -357,8 +357,11 @@ module exu
                           .out           ( exu_mul_result_e3[31:0]     ));  // O
 
 
-   //`ifdef RV_DIV_MBPTA
+ `ifdef RV_DIV_MBPTA
    exu_div_mbpta_ctl div_e1    (.*,
+ `else
+   exu_div_ctl div_e1    (.*,
+ `endif
                           .flush_lower   ( dec_tlu_flush_lower_wb      ),   // I
                           .dp            ( div_p                       ),   // I
                           .dividend      ( div_rs1_d[31:0]             ),   // I
@@ -368,20 +371,7 @@ module exu
                           .finish_early  ( div_finish_early            ),   // O
                           .finish        ( exu_div_finish              ),   // O
                           .out           ( exu_div_result[31:0]        ));  // O
-   //`else
-   /*exu_div_ctl div_e1    (.*,
-                          .flush_lower   ( dec_tlu_flush_lower_wb      ),   // I
-                          .dp            ( div_p                       ),   // I
-                          .dividend      ( div_rs1_d[31:0]             ),   // I
-                          .divisor       ( div_rs2_d[31:0]             ),   // I
-                          .valid_ff_e1   ( div_valid_e1                ),   // O
-                          .div_stall     ( exu_div_stall               ),   // O
-                          .finish_early  ( div_finish_early            ),   // O
-                          .finish        ( exu_div_finish              ),   // O
-                          .out           ( exu_div_result[31:0]        ));  // O*/
    
-   //`endif
-
    predict_pkt_t i0_predict_newp_d, i1_predict_newp_d;
 
    always_comb begin

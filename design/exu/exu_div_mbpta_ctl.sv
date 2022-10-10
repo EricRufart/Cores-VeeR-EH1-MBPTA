@@ -1,7 +1,21 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2019 Western Digital Corporation or its affiliates.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 
 module exu_div_mbpta_ctl
-	import swerv_types::*;
+   import swerv_types::*;
 (
    input logic         clk,                       // Top level clock
    input logic         active_clk,                // Level 1 active clock
@@ -24,7 +38,7 @@ module exu_div_mbpta_ctl
    output logic        div_stall,                 // Divide is running
 
    output logic [31:0] out                        // Result
- );
+  );
 
 	logic  	     finish_out;
 	logic   	 finish_early_out;
@@ -40,15 +54,15 @@ module exu_div_mbpta_ctl
 
 	// launch the division and capture the finish value
 	exu_div_ctl div_e1    (.*,
-	                          .flush_lower   ( flush_lower        ),   // I
-	                          .dp            ( dp                 ),   // I
-	                          .dividend      ( dividend[31:0]     ),   // I
-	                          .divisor       ( divisor[31:0]      ),   // I
-	                          .valid_ff_e1   ( valid_ff_e1        ),   // O
-	                          .div_stall     ( div_stall_out      ),   // O
-	                          .finish_early  ( finish_early_out   ),   // O
-	                          .finish        ( finish_out         ),   // O
-	                          .out           ( out_value[31:0]    ));  // O
+	                       .flush_lower   ( flush_lower        ),   // I
+	                       .dp            ( dp                 ),   // I
+	                       .dividend      ( dividend           ),   // I
+	                       .divisor       ( divisor            ),   // I
+	                       .valid_ff_e1   ( valid_ff_e1        ),   // O
+	                       .div_stall     ( div_stall_out      ),   // O
+	                       .finish_early  ( finish_early_out   ),   // O
+	                       .finish        ( finish_out         ),   // O
+	                       .out           ( out_value          ));  // O
 
 	
 	// if we are running count
