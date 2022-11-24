@@ -209,6 +209,7 @@ module ifu_mem_ctl
 
 
 
+   logic [31:1]    fetch_addr_f1_hashed; 
    logic [31:3]    ifu_ic_req_addr_f2;
    logic           uncacheable_miss_in ;
    logic           uncacheable_miss_ff;
@@ -256,6 +257,7 @@ module ifu_mem_ctl
    logic           ic_act_hit_f2;
    logic           miss_pending;
    logic [31:1]    imb_in , imb_ff  ;
+   logic [31:1]    imb_hash_in, imb_hash_ff  ;
    logic           flush_final_f2;
    logic           ifc_fetch_req_f2;
    logic           ifc_fetch_req_f2_raw;
@@ -484,9 +486,32 @@ module ifu_mem_ctl
    assign imb_in[31:1]          = sel_hold_imb ? imb_ff[31:1] : {fetch_addr_f1[31:1]} ;
 
 `ifdef RV_ICACHE_RANDOM_PLACEMENT
-   lfsr_prng #() lfsr (.*, .clk(fetch_f1_f2_c1_clk), .output_number_o(way_status_mb_in));
+    // Keep hashed imb addr separate, as the regular imb is used for the AXI access, and we should
+    // use the real address for that
+    assign imb_hash_in[31:1]     = sel_hold_imb ? imb_hash_ff[31:1] : {fetch_addr_f1_hashed[31:1]} ;
+    
+    // Randomize the way status using a LFSR
+    lfsr_prng #() lfsr (.*, .clk(free_clk), .output_number_o(way_status_mb_in));
+    
+    // Hash the upper part of the PC
+    logic [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] hashed_idx;
+    hash_cache_function_tag #(
+        .WORD_SIZE (32-ICACHE_TAG_LOW)
+    )
+    inst_hcf (
+        .clk_i                (clk ),
+        .addr_i               (fetch_addr_f1[31:ICACHE_TAG_LOW]),
+        .line_index_o         (hashed_idx)
+    );
+
+    // Replace only the index chunk in the hashed address
+    assign fetch_addr_f1_hashed[31:ICACHE_TAG_HIGH] = fetch_addr_f1[31:ICACHE_TAG_HIGH]; 
+    assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = hashed_idx; 
+    assign fetch_addr_f1_hashed[ICACHE_TAG_LOW-1:1] = fetch_addr_f1[ICACHE_TAG_LOW-1:1]; 
 `else
+    // No randomization
     assign way_status_mb_in[2:0] = ( miss_pending) ? way_status_mb_ff[2:0] : {way_status[2:0]} ;
+    assign fetch_addr_f1_hashed[31:1] = fetch_addr_f1[31:1]; 
 `endif
 
    assign tagv_mb_in[3:0]       = ( miss_pending) ? tagv_mb_ff[3:0]       : {ic_tag_valid[3:0]} ;
@@ -500,7 +525,7 @@ module ifu_mem_ctl
 
    rvdffe #(31) ifu_fetch_addr_f2_ff (.*,
                     .en (fetch_f1_f2_c1_clken),
-                    .din ({fetch_addr_f1[31:1]}),
+                    .din ({fetch_addr_f1_hashed[31:1]}),
                     .dout({ifu_fetch_addr_int_f2[31:1]}));
 
    assign vaddr_f2[3:1] = ifu_fetch_addr_int_f2[3:1] ;
@@ -512,6 +537,8 @@ module ifu_mem_ctl
    rvdff_fpga #(1) ifu_iccm_reg_acc_ff (.*, .clk(fetch_f1_f2_c1_clk), .clken(fetch_f1_f2_c1_clken), .rawclk(clk), .din(ifc_region_acc_fault_final_f1), .dout(ifc_region_acc_fault_f2));
    
    rvdffe #(31) imb_f2_ff       (.*, .en(fetch_f1_f2_c1_clken), .din ({imb_in[31:1]}), .dout({imb_ff[31:1]}));
+
+   rvdffe #(31) imb_f2_hash_ff  (.*, .en(fetch_f1_f2_c1_clken), .din ({imb_hash_in[31:1]}), .dout({imb_hash_ff[31:1]}));
 
    assign ifc_fetch_req_qual_f1  = ifc_fetch_req_f1  & ~((miss_state == CRIT_WRD_RDY) & flush_final_f2) ;// & ~exu_flush_final ;
    rvdff #(1) fetch_req_f2_ff  (.*, .clk(active_clk),  .din(ifc_fetch_req_qual_f1), .dout(ifc_fetch_req_f2_raw));
@@ -579,10 +606,10 @@ module ifu_mem_ctl
 
 
    assign sel_mb_addr  = ((miss_pending & ifu_wr_en_new ) | reset_tag_valid_for_miss) ;
-   assign ifu_ic_rw_int_addr[31:1] = ({31{ sel_mb_addr}}  &  {imb_ff[31:6] , ic_wr_addr_bits_5_3[5:3] , imb_ff[2:1]})  |
-                                     ({31{~sel_mb_addr}}  &  fetch_addr_f1[31:1] )   ;
+   assign ifu_ic_rw_int_addr[31:1] = ({31{ sel_mb_addr}}  &  {imb_hash_ff[31:6] , ic_wr_addr_bits_5_3[5:3] , imb_hash_ff[2:1]})  |
+                                     ({31{~sel_mb_addr}}  &  fetch_addr_f1_hashed[31:1] )   ;
 
-   assign ifu_status_wr_addr[31:1] = ({31{ sel_mb_addr}}  &  {imb_ff[31:6] , ic_wr_addr_bits_5_3[5:3] , imb_ff[2:1]})  |
+   assign ifu_status_wr_addr[31:1] = ({31{ sel_mb_addr}}  &  {imb_hash_ff[31:6] , ic_wr_addr_bits_5_3[5:3] , imb_hash_ff[2:1]})  |
                                      ({31{~sel_mb_addr}}  &  ifu_fetch_addr_int_f2[31:1] )   ;
 
    rvdff #(1) sel_mb_addr_flop (.*, .clk(free_clk), .din({sel_mb_addr}), .dout({sel_mb_addr_ff}));
