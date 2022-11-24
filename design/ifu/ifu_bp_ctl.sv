@@ -896,8 +896,13 @@ end // block: LRU_rd_mux
 
    logic [7:0] bp_valid_f2, bp_hist1_f2;
 
+`ifdef RV_STATIC_BRANCHPRED
+    // No kills if dynamic branchpred is disabled
+    assign ifu_bp_kill_next_f2 = '0;
+`else
    // a valid taken target needs to kill the next fetch as we compute the target address
    assign ifu_bp_kill_next_f2 = |(bp_valid_f2[7:0] & bp_hist1_f2[7:0]) & ifc_fetch_req_f2 & ~leak_one_f2 & ~dec_tlu_bpred_disable;
+`endif
 
 
    // Don't put calls/rets/ja in the predictor, force the bht taken instead
@@ -1066,7 +1071,12 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
    assign ifu_bp_hist1_f2[7:0]    = hist1_raw[7:0];
    assign ifu_bp_hist0_f2[7:0]    = hist0_raw[7:0];
    assign ifu_bp_pc4_f2[7:0]     = pc4_raw[7:0];
+`ifdef RV_STATIC_BRANCHPRED
+    // BP can't be valid if branchpred is disabled
+   assign ifu_bp_valid_f2[7:0]   = '0;
+`else
    assign ifu_bp_valid_f2[7:0]   = wayhit_f2[7:0] & ~{8{dec_tlu_bpred_disable}};
+`endif
    assign ifu_bp_ret_f2[7:0]     = pret_raw[7:0];
 
 
@@ -1438,7 +1448,23 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
    // BTB
    // Entry -> tag[`RV_BTB_BTAG_SIZE-1:0], toffset[11:0], pc4, boffset, call, ret, valid
 
+`ifdef RV_STATIC_BRANCHPRED
+    assign btb_bank0_rd_data_way0_out = '0;
+    assign btb_bank0_rd_data_way1_out = '0;
+    assign btb_bank1_rd_data_way0_out = '0;
+    assign btb_bank1_rd_data_way1_out = '0;
+    assign btb_bank2_rd_data_way0_out = '0;
+    assign btb_bank2_rd_data_way1_out = '0;
+    assign btb_bank3_rd_data_way0_out = '0;
+    assign btb_bank3_rd_data_way1_out = '0;
+    `ifdef RV_BTB_48
+        assign btb_bank0_rd_data_way2_out = '0;
+        assign btb_bank1_rd_data_way2_out = '0;
+        assign btb_bank2_rd_data_way2_out = '0;
+        assign btb_bank3_rd_data_way2_out = '0;
+    `endif
 
+`else
     for (j=0 ; j<LRU_SIZE ; j++) begin : BTB_FLOPS
       // Way 0
           rvdffe #(17+`RV_BTB_BTAG_SIZE) btb_bank0_way0 (.*,
@@ -1504,6 +1530,7 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
                     .dout       (btb_bank3_rd_data_way2_out[j]));
 `endif
     end
+`endif
 
    rvdffe #(17+`RV_BTB_BTAG_SIZE) btb_bank0_way0_data_out (.*,
                     .en(ifc_fetch_req_f1),
@@ -1643,6 +1670,10 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
                                            (bht_wr_en1[i] & (bht_wr_addr1[NUM_BHT_LOOP_INNER_HI:`RV_BHT_ADDR_LO] == j) & ((bht_wr_addr1[`RV_BHT_ADDR_HI: NUM_BHT_LOOP_OUTER_LO]==k) | BHT_NO_ADDR_MATCH)) ? bht_wr_data1[1:0] :
                                                                                                                       bht_wr_data0[1:0]   ;
 
+`ifdef RV_STATIC_BRANCHPRED
+    // No branchpred, do nit instantiate BHT flops
+    assign  bht_bank_rd_data_out[i][(16*k)+j] = '0;
+`else
           rvdffs_fpga #(2) bht_bank (.*,
                     .clk        (bht_bank_clk[i][k]),
                     .clken      (bht_bank_sel[i][k][j]),
@@ -1650,10 +1681,13 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
                     .en         (bht_bank_sel[i][k][j]),
                     .din        (bht_bank_wr_data[i][k][j]),
                     .dout       (bht_bank_rd_data_out[i][(16*k)+j]));
+`endif
 
       end // block: BHT_FLOPS
    end // block: BHT_CLK_GROUP
  end // block: BANKS
+
+
 
     always_comb begin : BHT_rd_mux
      bht_bank0_rd_data_f2_in[1:0] = '0 ;
