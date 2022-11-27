@@ -852,6 +852,12 @@ module dec_tlu_ctl
    assign dec_tlu_br1_start_error_e4 = exu_i1_br_start_error_e4 & dec_tlu_i1_valid_e4 & ~tlu_flush_lower_wb & ~exu_i0_br_mp_e4;
    assign dec_tlu_br1_v_e4 = exu_i1_br_valid_e4 & ~tlu_flush_lower_wb & dec_tlu_i1_valid_e4 & ~exu_i0_br_mp_e4 & ~exu_i1_br_mp_e4;
 
+`ifdef RV_STATIC_BRANCHPRED
+    // Do not generate branch status flops if dynamic BP is disabled
+    assign dec_tlu_br0_wb_pkt = '0;
+    assign dec_tlu_br1_wb_pkt = '0;
+`else
+
 `ifdef RV_BTB_48
    rvdff #(20)
 `else
@@ -903,6 +909,7 @@ module dec_tlu_ctl
                                   dec_tlu_br1_addr_e4[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]}),
                            .dout({dec_tlu_br0_wb_pkt.index[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO],
                                   dec_tlu_br1_wb_pkt.index[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]}));
+`endif
 
    // only expect these in pipe 0
    assign       ebreak_e4    =  (dec_tlu_packet_e4.pmu_i0_itype == EBREAK)  & dec_tlu_i0_valid_e4 & ~i0_trigger_hit_e4 & ~dcsr[`DCSR_EBREAKM];

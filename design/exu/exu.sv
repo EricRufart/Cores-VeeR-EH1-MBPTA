@@ -670,6 +670,11 @@ module exu
    assign exu_rets_e4_pkt.pc0_pc4 = i0_predict_p_e4.pc4;
    assign exu_rets_e4_pkt.pc1_pc4 = i1_predict_p_e4.pc4;
 
+`ifdef RV_STATIC_BRANCHPRED
+    assign exu_mp_pkt = '0;
+
+    assign exu_mp_eghr[`RV_BHT_GHR_RANGE] = '0;
+`else
    predict_pkt_t final_predict_mp, final_predict_mp_ff;
 
    logic fp_enable, fp_enable_ff;
@@ -710,6 +715,8 @@ module exu
    assign exu_mp_pkt.fghr[`RV_BHT_GHR_RANGE]                = after_flush_eghr[`RV_BHT_GHR_RANGE];     // fghr repair value
 
    assign exu_mp_eghr[`RV_BHT_GHR_RANGE] = final_predict_mp_ff.fghr[`RV_BHT_GHR_RANGE]; // mp ghr for bht write
+`endif
+
 
 
 
