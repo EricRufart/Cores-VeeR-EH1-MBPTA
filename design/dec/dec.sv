@@ -398,6 +398,9 @@ module dec
    output logic  dec_tlu_dccm_clk_override,          // override DCCM clock domain gating
    output logic  dec_tlu_icm_clk_override,           // override ICCM clock domain gating
 
+   output logic         dec_takenbr, // Taken branch in decode (Static branchpred)
+   output logic [31:1]  dec_takenbr_path, // Taken branch path
+
    input  logic        scan_mode
 
    );

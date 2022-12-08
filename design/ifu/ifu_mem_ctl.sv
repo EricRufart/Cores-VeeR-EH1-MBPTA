@@ -29,6 +29,7 @@ module ifu_mem_ctl
    input logic rst_l,
 
    input logic                       exu_flush_final,               // Flush from the pipeline.
+   input logic                       dec_takenbr,                   // Taken branch in decode (Static branchpred)
    input logic                       dec_tlu_flush_err_wb,          // Flush from the pipeline due to perr.
 
    input logic [31:1]                fetch_addr_f1,                 // Fetch Address byte aligned always.      F1 stage.
@@ -374,7 +375,7 @@ module ifu_mem_ctl
 // c1 clock enables
 
 
-   assign fetch_f1_f2_c1_clken  = ifc_fetch_req_f1_raw | ifc_fetch_req_f2 | miss_pending | exu_flush_final ;
+   assign fetch_f1_f2_c1_clken  = ifc_fetch_req_f1_raw | ifc_fetch_req_f2 | miss_pending | exu_flush_final | dec_takenbr ;
    assign debug_c1_clken        = ic_debug_rd_en | ic_debug_wr_en ;
    // C1 - 1 clock pulse for data
 
@@ -421,24 +422,24 @@ module ifu_mem_ctl
       miss_state_en   = 1'b0;
       case (miss_state)
          IDLE: begin : idle
-                  miss_nxtstate = (ic_act_miss_f2 & ~exu_flush_final) ? CRIT_BYP_OK : HIT_U_MISS ;
+                  miss_nxtstate = (ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
                   miss_state_en = ic_act_miss_f2;
          end
          CRIT_BYP_OK: begin : crit_byp_ok
-                  miss_nxtstate = ( ic_byp_hit_f2 &  ~exu_flush_final & ~(ifu_wr_en_new & last_beat) & ~uncacheable_miss_ff) ? MISS_WAIT :
+                  miss_nxtstate = ( ic_byp_hit_f2 &  ~exu_flush_final & ~dec_takenbr & ~(ifu_wr_en_new & last_beat) & ~uncacheable_miss_ff) ? MISS_WAIT :
                                   ( ic_byp_hit_f2                                                    &  uncacheable_miss_ff) ? IDLE :
-                                  (~ic_byp_hit_f2 &  ~exu_flush_final &  (ifu_wr_en_new & last_beat) &  uncacheable_miss_ff) ? CRIT_WRD_RDY :
-                                  (                                      (ifu_wr_en_new & last_beat) & ~uncacheable_miss_ff) ? IDLE :
-                                  (                   exu_flush_final & ~(ifu_wr_en_new & last_beat)                       ) ? HIT_U_MISS : IDLE;
-                  miss_state_en =  exu_flush_final | ic_byp_hit_f2 | (ifu_wr_en_new & last_beat)  ;
+                                  (~ic_byp_hit_f2 &  ~exu_flush_final & ~dec_takenbr &  (ifu_wr_en_new & last_beat) &  uncacheable_miss_ff) ? CRIT_WRD_RDY :
+                                  (                                                     (ifu_wr_en_new & last_beat) & ~uncacheable_miss_ff) ? IDLE :
+                                  (                  (exu_flush_final | dec_takenbr) & ~(ifu_wr_en_new & last_beat)                       ) ? HIT_U_MISS : IDLE;
+                  miss_state_en =  exu_flush_final | dec_takenbr | ic_byp_hit_f2 | (ifu_wr_en_new & last_beat)  ;
          end
          CRIT_WRD_RDY: begin : crit_wrd_rdy
                   miss_nxtstate =  IDLE ;
-                  miss_state_en =  exu_flush_final | flush_final_f2 | ic_byp_hit_f2   ;
+                  miss_state_en =  exu_flush_final | dec_takenbr | flush_final_f2 | ic_byp_hit_f2   ;
          end
          MISS_WAIT: begin : miss_wait
                   miss_nxtstate =  (exu_flush_final & ~(ifu_wr_en_new & last_beat)) ? HIT_U_MISS  : IDLE ;
-                  miss_state_en =   exu_flush_final | (ifu_wr_en_new & last_beat)  ;
+                  miss_state_en =   exu_flush_final | dec_takenbr | (ifu_wr_en_new & last_beat)  ;
          end
          HIT_U_MISS: begin : hit_u_miss
                   miss_nxtstate =  ic_miss_under_miss_f2 & ~(ifu_wr_en_new & last_beat) ? SCND_MISS :  IDLE  ;
@@ -459,7 +460,7 @@ module ifu_mem_ctl
 
    assign miss_pending       =  (miss_state != IDLE) ;
    assign crit_wd_byp_ok_ff  =  (miss_state == CRIT_BYP_OK) | ((miss_state == CRIT_WRD_RDY) & ~flush_final_f2);
-   assign sel_hold_imb       =  (miss_pending & ~(ifu_wr_en_new & last_beat) & ~((miss_state == CRIT_WRD_RDY) & exu_flush_final)) | ic_act_miss_f2 |
+   assign sel_hold_imb       =  (miss_pending & ~(ifu_wr_en_new & last_beat) & ~((miss_state == CRIT_WRD_RDY) & (exu_flush_final|dec_takenbr))) | ic_act_miss_f2 |
                                 (miss_pending & (miss_nxtstate == CRIT_WRD_RDY)) ;
 
 
@@ -543,7 +544,7 @@ module ifu_mem_ctl
    assign ifc_fetch_req_qual_f1  = ifc_fetch_req_f1  & ~((miss_state == CRIT_WRD_RDY) & flush_final_f2) ;// & ~exu_flush_final ;
    rvdff #(1) fetch_req_f2_ff  (.*, .clk(active_clk),  .din(ifc_fetch_req_qual_f1), .dout(ifc_fetch_req_f2_raw));
 
-   assign ifc_fetch_req_f2       = ifc_fetch_req_f2_raw & ~exu_flush_final ;
+   assign ifc_fetch_req_f2       = ifc_fetch_req_f2_raw & ~exu_flush_final & ~dec_takenbr;
 
 
    assign ifu_ic_req_addr_f2[31:3] = {imb_ff[31:6] , ic_req_addr_bits_5_3[5:3] };
@@ -699,9 +700,9 @@ end
   assign ic_data_f2[127:0]      =  ic_final_data[127:0];
 
 
-rvdff #(1) flush_final_ff (.*, .clk(free_clk), .din({exu_flush_final}), .dout({flush_final_f2}));
-assign fetch_req_f2_qual       = ic_hit_f2 & ~exu_flush_final;
-assign ic_access_fault_f2[7:0]  = ({8{ifc_region_acc_fault_f2}} | ifc_bus_acc_fault_f2[7:0])  & {8{~exu_flush_final}};
+rvdff #(1) flush_final_ff (.*, .clk(free_clk), .din({exu_flush_final|dec_takenbr}), .dout({flush_final_f2}));
+assign fetch_req_f2_qual       = ic_hit_f2 & ~exu_flush_final & ~dec_takenbr;
+assign ic_access_fault_f2[7:0]  = ({8{ifc_region_acc_fault_f2}} | ifc_bus_acc_fault_f2[7:0])  & {8{~(exu_flush_final|dec_takenbr)}};
 
   // right justified
 assign ic_fetch_val_f2[7] = fetch_req_f2_qual & ifu_bp_inst_mask_f2[7] & ((!vaddr_f2[3]&!vaddr_f2[2]&!vaddr_f2[1]));
@@ -810,8 +811,8 @@ assign ic_fetch_val_f2[0] = fetch_req_f2_qual ;
    assign    ic_crit_wd_complete = (write_byp_first_data  & ifu_byp_data_second_half_valid) |
                                    (write_byp_second_data & ifu_byp_data_first_half_valid)  ;
 
-   assign    ic_crit_wd_rdy_in = (ic_crit_wd_complete & crit_wd_byp_ok_ff & ~exu_flush_final ) |
-                                 (ic_crit_wd_rdy_ff & ~fetch_req_icache_f2 & crit_wd_byp_ok_ff & ~exu_flush_final) ;
+   assign    ic_crit_wd_rdy_in = (ic_crit_wd_complete & crit_wd_byp_ok_ff & ~exu_flush_final & ~dec_takenbr) |
+                                 (ic_crit_wd_rdy_ff & ~fetch_req_icache_f2 & crit_wd_byp_ok_ff & ~exu_flush_final & ~dec_takenbr) ;
 
    rvdff #(1)           crit_wd_ff      (.*, .clk(free_clk),  .din(ic_crit_wd_rdy_in),   .dout(ic_crit_wd_rdy_ff));
 /////////////////////////////////////////////////////////////////////////////////////
@@ -860,18 +861,18 @@ logic                                         ifu_icache_sb_error_val_ff   ;
 
       case (perr_state)
          ERR_IDLE: begin : err_idle
-                  perr_nxtstate         =  iccm_dma_sb_error ? DMA_SB_ERR : (ic_rd_parity_final_err_ff & ~exu_flush_final) ? PERR_WFF : ECC_WFF;
-                  perr_state_en         =  ((ic_rd_parity_final_err_ff | ifu_icache_sb_error_val_ff) & ~exu_flush_final) | iccm_dma_sb_error;
+                  perr_nxtstate         =  iccm_dma_sb_error ? DMA_SB_ERR : (ic_rd_parity_final_err_ff & ~exu_flush_final & ~dec_takenbr) ? PERR_WFF : ECC_WFF;
+                  perr_state_en         =  ((ic_rd_parity_final_err_ff | ifu_icache_sb_error_val_ff) & ~exu_flush_final & ~dec_takenbr) | iccm_dma_sb_error;
                   perr_sb_write_status  =  perr_state_en;
          end
          PERR_WFF: begin : perr_wff
                   perr_nxtstate       =  ERR_IDLE ;
-                  perr_state_en       =   exu_flush_final  ;
-                  perr_sel_invalidate =  (dec_tlu_flush_err_wb &  exu_flush_final);
+                  perr_state_en       =   exu_flush_final | dec_takenbr;
+                  perr_sel_invalidate =  (dec_tlu_flush_err_wb &  (exu_flush_final|dec_takenbr));
          end
          ECC_WFF: begin : ecc_wff
-                  perr_nxtstate       =  (~dec_tlu_flush_err_wb &  exu_flush_final ) ? ERR_IDLE : ECC_CORR ;
-                  perr_state_en       =   exu_flush_final   ;
+                  perr_nxtstate       =  (~dec_tlu_flush_err_wb &  (exu_flush_final |dec_takenbr)) ? ERR_IDLE : ECC_CORR ;
+                  perr_state_en       =   exu_flush_final | dec_takenbr;
          end
          DMA_SB_ERR : begin : dma_sb_ecc
                  perr_nxtstate       = ECC_CORR;
@@ -911,7 +912,7 @@ logic [3:0]        iccm_rd_err_f2_mux;
 logic              iccm_dma_rvalid_in;
 
 for (i=0; i < 4 ; i++) begin : ICCM_ECC_CHECK
-assign iccm_ecc_word_enable[i] = ((|ic_fetch_val_mem_f2[(2*i+1):(2*i)] & ~exu_flush_final & sel_iccm_data) | iccm_dma_rvalid_in) & ~dec_tlu_core_ecc_disable;
+assign iccm_ecc_word_enable[i] = ((|ic_fetch_val_mem_f2[(2*i+1):(2*i)] & ~exu_flush_final & ~dec_takenbr & sel_iccm_data) | iccm_dma_rvalid_in) & ~dec_tlu_core_ecc_disable;
 rvecc_decode  ecc_decode (
                            .en(iccm_ecc_word_enable[i]),
                            .sed_ded ( 1'b0 ),    // 1 : means only detection
@@ -946,8 +947,8 @@ assign iccm_corrected_ecc_f2_mux[06:0]  = iccm_single_ecc_error[0] ? iccm_correc
 
    logic  iccm_rd_ecc_single_err_hold_in ;
 
-   assign iccm_ecc_write_status          =  ((iccm_rd_ecc_single_err & ~iccm_rd_ecc_single_err_ff)  & ~exu_flush_final) | iccm_dma_sb_error;
-   assign iccm_rd_ecc_single_err_hold_in =  (iccm_rd_ecc_single_err | iccm_rd_ecc_single_err_ff) & ~exu_flush_final;
+   assign iccm_ecc_write_status          =  ((iccm_rd_ecc_single_err & ~iccm_rd_ecc_single_err_ff)  & ~exu_flush_final & ~dec_takenbr) | iccm_dma_sb_error;
+   assign iccm_rd_ecc_single_err_hold_in =  (iccm_rd_ecc_single_err | iccm_rd_ecc_single_err_ff) & ~exu_flush_final & ~dec_takenbr;
 
    rvdff  #((1))          ecc_rr_ff    (.clk(free_clk), .din(iccm_rd_ecc_single_err_hold_in),   .dout(iccm_rd_ecc_single_err_ff),            .*);
    rvdffs #((32))         ecc_dat0_ff  (.clk(free_clk), .din(iccm_corrected_data_f2_mux[31:0]), .dout(iccm_ecc_corr_data_ff[31:0]),          .en(iccm_ecc_write_status),  .*);

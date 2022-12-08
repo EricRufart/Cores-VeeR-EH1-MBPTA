@@ -47,6 +47,9 @@ module ifu_bp_ctl
    input logic dec_tlu_flush_leak_one_wb, // don't hit for leak one fetches
 
    input logic dec_tlu_bpred_disable, // disable all branch prediction
+   
+   input logic dec_takenbr, // Taken branch in decode (Static branchpred)
+   input logic [31:1] dec_takenbr_path, // Taken branch path
 
    input logic        exu_i0_br_ret_e4, // EX4 ret stack update
    input logic        exu_i1_br_ret_e4, // EX4 ret stack update
@@ -898,7 +901,7 @@ end // block: LRU_rd_mux
 
 `ifdef RV_STATIC_BRANCHPRED
     // No kills if dynamic branchpred is disabled
-    assign ifu_bp_kill_next_f2 = '0;
+    assign ifu_bp_kill_next_f2 = dec_takenbr & ~exu_flush_final;
 `else
    // a valid taken target needs to kill the next fetch as we compute the target address
    assign ifu_bp_kill_next_f2 = |(bp_valid_f2[7:0] & bp_hist1_f2[7:0]) & ifc_fetch_req_f2 & ~leak_one_f2 & ~dec_tlu_bpred_disable;
@@ -1147,8 +1150,14 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
                          .offset(btb_rd_tgt_f2[11:0]),
                          .dout(bp_btb_target_adder_f2[31:1])
                          );
+
+`ifdef RV_STATIC_BRANCHPRED
+    // Static branch prediction: get the path from decode
+    assign ifu_bp_btb_target_f2[31:1] = dec_takenbr_path[31:1];
+`else
    // mux in the return stack address here for a predicted return
    assign ifu_bp_btb_target_f2[31:1] = btb_rd_ret_f2 & ~btb_rd_call_f2 ? rets_out[0][31:1] : bp_btb_target_adder_f2[31:1];
+`endif
 
 
    // ----------------------------------------------------------------------

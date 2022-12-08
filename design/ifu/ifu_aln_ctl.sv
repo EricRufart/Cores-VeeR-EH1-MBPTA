@@ -47,6 +47,7 @@ module ifu_aln_ctl
    input logic [7:0]  ifu_bp_ret_f2,      // predicted ret indication, right justified
 
    input logic exu_flush_final,           // Flush from the pipeline.
+   input logic dec_takenbr,               // Taken branch in decode (Static branchpred)
 
    input logic dec_ib3_valid_d,           // valids for top 2 instruction buffers at decode
    input logic dec_ib2_valid_d,
@@ -269,7 +270,7 @@ module ifu_aln_ctl
    assign wrptr_in[1:0] =  (({2{wrptr[1:0]==2'b00 & ifvalid}} & 2'b01) |
                             ({2{wrptr[1:0]==2'b01 & ifvalid}} & 2'b10) |
                             ({2{wrptr[1:0]==2'b10 & ifvalid}} & 2'b00) |
-                            ({2{~ifvalid}} & wrptr[1:0])) & ~{2{exu_flush_final}};
+                            ({2{~ifvalid}} & wrptr[1:0])) & ~{2{exu_flush_final|dec_takenbr}};
 
    rvdff #(2) wrpff (.*, .clk(active_clk), .din(wrptr_in[1:0]), .dout(wrptr[1:0]));
 
@@ -279,7 +280,7 @@ module ifu_aln_ctl
                             ({2{rdptr[1:0]==2'b00 & ifu_fb_consume2}} & 2'b10) |
                             ({2{rdptr[1:0]==2'b01 & ifu_fb_consume2}} & 2'b00) |
                             ({2{rdptr[1:0]==2'b10 & ifu_fb_consume2}} & 2'b01) |
-                            ({2{~ifu_fb_consume1&~ifu_fb_consume2}} & rdptr[1:0])) & ~{2{exu_flush_final}};
+                            ({2{~ifu_fb_consume1&~ifu_fb_consume2}} & rdptr[1:0])) & ~{2{exu_flush_final|dec_takenbr}};
 
    rvdff #(2) rdpff (.*, .clk(active_clk), .din(rdptr_in[1:0]), .dout(rdptr[1:0]));
 
@@ -506,9 +507,9 @@ module ifu_aln_ctl
 
    assign consume_fb1 = ~sf1val[0] & f1val[0];
 
-   assign ifu_fb_consume1 = consume_fb0 & ~consume_fb1 & ~exu_flush_final;
+   assign ifu_fb_consume1 = consume_fb0 & ~consume_fb1 & ~exu_flush_final & ~dec_takenbr;
 
-   assign ifu_fb_consume2 = consume_fb0 &  consume_fb1 & ~exu_flush_final;
+   assign ifu_fb_consume2 = consume_fb0 &  consume_fb1 & ~exu_flush_final & ~dec_takenbr;
 
    assign ifvalid = ifu_fetch_val[0];
 
@@ -585,7 +586,7 @@ module ifu_aln_ctl
    // no clock-gating on the valids
 
    assign f2val_in[7:0] = (({8{fetch_to_f2}} & ifu_fetch_val[7:0]) |
-                           ({8{~fetch_to_f2&~shift_f2_f1&~shift_f2_f0}} & f2val[7:0])) & ~{8{exu_flush_final}};
+                           ({8{~fetch_to_f2&~shift_f2_f1&~shift_f2_f0}} & f2val[7:0])) & ~{8{exu_flush_final|dec_takenbr}};
 
    rvdff #(8) f2valff (.*, .clk(active_clk), .din(f2val_in[7:0]), .dout(f2val[7:0]));
 
@@ -596,7 +597,7 @@ module ifu_aln_ctl
 
    assign f1val_in[7:0] = (({8{fetch_to_f1}} & ifu_fetch_val[7:0]) |
                            ({8{shift_f2_f1}} & f2val[7:0]) |
-                           ({8{~fetch_to_f1&~shift_f2_f1&~shift_f1_f0}} & sf1val[7:0])) & ~{8{exu_flush_final}};
+                           ({8{~fetch_to_f1&~shift_f2_f1&~shift_f1_f0}} & sf1val[7:0])) & ~{8{exu_flush_final|dec_takenbr}};
 
    rvdff #(8) f1valff (.*, .clk(active_clk), .din(f1val_in[7:0]), .dout(f1val[7:0]));
 
@@ -610,7 +611,7 @@ module ifu_aln_ctl
    assign f0val_in[7:0] = (({8{fetch_to_f0}} & ifu_fetch_val[7:0]) |
                            ({8{shift_f2_f0}} & f2val[7:0]) |
                            ({8{shift_f1_f0}} & sf1val[7:0]) |
-                           ({8{~fetch_to_f0&~shift_f2_f0&~shift_f1_f0}} & sf0val[7:0])) & ~{8{exu_flush_final}};
+                           ({8{~fetch_to_f0&~shift_f2_f0&~shift_f1_f0}} & sf0val[7:0])) & ~{8{exu_flush_final|dec_takenbr}};
 
    rvdff #(8) f0valff (.*, .clk(active_clk), .din(f0val_in[7:0]), .dout(f0val[7:0]));
 
@@ -881,16 +882,16 @@ module ifu_aln_ctl
    assign third2B = ~third4B;
 
    assign ifu_i0_valid = ((first4B & alignval[1]) |
-                          (first2B & alignval[0])) & ~exu_flush_final;
+                          (first2B & alignval[0])) & ~exu_flush_final & ~dec_takenbr;
 
    assign ifu_i1_valid = ((first4B & third4B & alignval[3])  |
                           (first4B & third2B & alignval[2])  |
                           (first2B & second4B & alignval[2]) |
-                          (first2B & second2B & alignval[1])) & ~exu_flush_final;
+                          (first2B & second2B & alignval[1])) & ~exu_flush_final & ~dec_takenbr;
 
    // inst access fault on any byte of inst results in access fault for the inst
    assign ifu_i0_icaf = ((first4B & (|alignicaf[1:0])) |
-                         (first2B &   alignicaf[0])) & ~exu_flush_final;
+                         (first2B &   alignicaf[0])) & ~exu_flush_final & ~dec_takenbr;
 
 
 
@@ -901,7 +902,7 @@ module ifu_aln_ctl
    assign ifu_i1_icaf = ((first4B & third4B &  (|alignicaf[3:2])) |
                          (first4B & third2B &    alignicaf[2])    |
                          (first2B & second4B & (|alignicaf[2:1])) |
-                         (first2B & second2B &   alignicaf[1])) & ~exu_flush_final;
+                         (first2B & second2B &   alignicaf[1])) & ~exu_flush_final & ~dec_takenbr;
 
    assign ifu_i1_icaf_second = (first4B & third4B  & ~icaf_eff[2] & icaf_eff[3]) |
                                (first2B & second4B & ~icaf_eff[1] & icaf_eff[2]);
@@ -912,28 +913,28 @@ module ifu_aln_ctl
    assign alignfinalperr[3:0] = (aligntagperr[3:0] | aligndataperr[3:0]) & alignicfetch[3:0];
 
    assign ifu_i0_perr = ((first4B & (|alignfinalperr[1:0])) |
-                         (first2B &   alignfinalperr[0])) & ~exu_flush_final;
+                         (first2B &   alignfinalperr[0])) & ~exu_flush_final & ~dec_takenbr;
 
    assign ifu_i1_perr = ((first4B & third4B &  (|alignfinalperr[3:2])) |
                          (first4B & third2B &    alignfinalperr[2])    |
                          (first2B & second4B & (|alignfinalperr[2:1])) |
-                         (first2B & second2B &   alignfinalperr[1])) & ~exu_flush_final;
+                         (first2B & second2B &   alignfinalperr[1])) & ~exu_flush_final & ~dec_takenbr;
 
    assign ifu_i0_sbecc = ((first4B & (|alignsbecc[1:0])) |
-                          (first2B &   alignsbecc[0])) & ~exu_flush_final;
+                          (first2B &   alignsbecc[0])) & ~exu_flush_final & ~dec_takenbr;
 
    assign ifu_i1_sbecc = ((first4B & third4B &  (|alignsbecc[3:2])) |
                           (first4B & third2B &    alignsbecc[2])    |
                           (first2B & second4B & (|alignsbecc[2:1])) |
-                          (first2B & second2B &   alignsbecc[1])) & ~exu_flush_final;
+                          (first2B & second2B &   alignsbecc[1])) & ~exu_flush_final & ~dec_takenbr;
 
    assign ifu_i0_dbecc = ((first4B & (|aligndbecc[1:0])) |
-                          (first2B &   aligndbecc[0])) & ~exu_flush_final;
+                          (first2B &   aligndbecc[0])) & ~exu_flush_final & ~dec_takenbr;
 
    assign ifu_i1_dbecc = ((first4B & third4B &  (|aligndbecc[3:2])) |
                           (first4B & third2B &    aligndbecc[2])    |
                           (first2B & second4B & (|aligndbecc[2:1])) |
-                          (first2B & second2B &   aligndbecc[1])) & ~exu_flush_final;
+                          (first2B & second2B &   aligndbecc[1])) & ~exu_flush_final & ~dec_takenbr;
 
    // send index information to the icache on a parity or single-bit ecc error
    // parity error is orthogonal to single-bit ecc error; icache vs iccm
@@ -1147,7 +1148,7 @@ module ifu_aln_ctl
 
    rvdffe #(16) illegal_any_ff (.*, .en(illegal_inst_en), .din(illegal_inst[15:0]), .dout(ifu_illegal_inst[15:0]));
 
-   assign illegal_lockout_in = (shift_illegal | illegal_lockout) & ~exu_flush_final;
+   assign illegal_lockout_in = (shift_illegal | illegal_lockout) & ~exu_flush_final & ~dec_takenbr;
 
    rvdff #(1) illegal_lockout_any_ff (.*, .clk(active_clk), .din(illegal_lockout_in), .dout(illegal_lockout));
 

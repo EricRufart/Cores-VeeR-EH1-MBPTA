@@ -43,6 +43,8 @@ module ifu_ifc_ctl
    input logic exu_flush_final, // FLush
    input logic [31:1] exu_flush_path_final, // Flush path
 
+   input logic dec_takenbr, // Taken branch in decode (Static branchpred)
+
    input logic ifu_bp_kill_next_f2, // kill next fetch, taken target found
    input logic [31:1] ifu_bp_btb_target_f2, //  predicted target PC
 
@@ -122,7 +124,7 @@ module ifu_ifc_ctl
 
    assign missff_en = exu_flush_final | (~ic_hit_f2 & ifc_fetch_req_f2) | ifu_bp_kill_next_f2 | fetch_crit_word_d1 | ifu_bp_kill_next_f2 | (ifc_fetch_req_f2 & ~ifc_fetch_req_f1 & ~fetch_crit_word_d2);
    assign miss_sel_flush = exu_flush_final & (((wfm | idle) & ~fetch_crit_word_d1)  | dma_stall | ic_write_stall);
-   assign miss_sel_f2 = ~exu_flush_final & ~ic_hit_f2 & ifc_fetch_req_f2;
+   assign miss_sel_f2 = ~exu_flush_final & ~ic_hit_f2 & ifc_fetch_req_f2 & ~dec_takenbr;
    assign miss_sel_f1 = ~exu_flush_final & ~miss_sel_f2 & ~ifc_fetch_req_f1 & ifc_fetch_req_f2 & ~fetch_crit_word_d2 & ~ifu_bp_kill_next_f2;
    assign miss_sel_bf = ~miss_sel_f2 & ~miss_sel_f1 & ~miss_sel_flush;
 
@@ -160,7 +162,7 @@ module ifu_ifc_ctl
 
    assign miss_f2 = ifc_fetch_req_f2 & ~ic_hit_f2;
 
-   assign mb_empty_mod = (ifu_ic_mb_empty | exu_flush_final) & ~dma_stall & ~miss_f2 & ~miss_a;
+   assign mb_empty_mod = (ifu_ic_mb_empty | exu_flush_final | dec_takenbr) & ~dma_stall & ~miss_f2 & ~miss_a;
 
    // Halt flushes and takes us to IDLE
    assign goto_idle = exu_flush_final & dec_tlu_flush_noredir_wb;
@@ -191,7 +193,7 @@ module ifu_ifc_ctl
    assign next_state[0] = (~goto_idle & leave_idle) | (state[0] & ~goto_idle) |
                           (reset_delayed);
 
-   assign flush_fb = exu_flush_final;
+   assign flush_fb = exu_flush_final | dec_takenbr;
 
    // model fb write logic to mass balance the fetch buffers
    assign fb_right = (~ifu_fb_consume1 & ~ifu_fb_consume2 & miss_f2) |  // F2 cache miss, repair mass balance
@@ -226,7 +228,7 @@ module ifu_ifc_ctl
 
    assign ifu_pmu_fetch_stall = wfm |
                                 (ifc_fetch_req_f1_raw &
-                                ( (fb_full_f1 & ~(ifu_fb_consume2 | ifu_fb_consume1 | exu_flush_final)) |
+                                ( (fb_full_f1 & ~(ifu_fb_consume2 | ifu_fb_consume1 | exu_flush_final | dec_takenbr)) |
                                   dma_stall));
    // BTB hit kills this fetch
    assign ifc_fetch_req_f1 = ( ifc_fetch_req_f1_raw &
@@ -241,13 +243,14 @@ module ifu_ifc_ctl
 
    rvdff #(2) req_ff (.*, .clk(active_clk), .din({ifc_fetch_req_bf, fetch_req_f2_ns}), .dout({ifc_fetch_req_f1_raw, ifc_fetch_req_f2_raw}));
 
-   assign ifc_fetch_req_f2 = ifc_fetch_req_f2_raw & ~exu_flush_final;
+   assign ifc_fetch_req_f2 = ifc_fetch_req_f2_raw & ~(exu_flush_final | dec_takenbr);
 
    rvdffe #(31) faddrf1_ff  (.*, .en(fetch_bf_en), .din(fetch_addr_bf[31:1]), .dout(ifc_fetch_addr_f1_raw[31:1]));
    rvdff #(31) faddrf2_ff (.*,  .clk(ifc_f2_clk), .din(ifc_fetch_addr_f1[31:1]), .dout(ifc_fetch_addr_f2[31:1]));
 
    assign ifc_fetch_addr_f1[31:1] = ( ({31{exu_flush_final}} & exu_flush_path_final[31:1]) |
-                                      ({31{~exu_flush_final}} & ifc_fetch_addr_f1_raw[31:1]));
+                                      ({31{~exu_flush_final&dec_takenbr}} & ifu_bp_btb_target_f2[31:1]) |
+                                      ({31{~exu_flush_final&~dec_takenbr}} & ifc_fetch_addr_f1_raw[31:1]));
 
    rvdff #(3) iccrit_ff (.*, .clk(active_clk), .din({ic_crit_wd_rdy_mod, fetch_crit_word,    fetch_crit_word_d1}),
                                               .dout({ic_crit_wd_rdy_d1,  fetch_crit_word_d1, fetch_crit_word_d2}));
@@ -267,7 +270,7 @@ module ifu_ifc_ctl
    assign ifc_dma_access_ok = ( (~ifc_iccm_access_f1 |
                                  (fb_full_f1 & ~(ifu_fb_consume2 | ifu_fb_consume1)) |
                                  wfm |
-                                 idle ) & ~exu_flush_final) |
+                                 idle ) & ~(exu_flush_final | dec_takenbr)) |
                               dma_iccm_stall_any_f;
 
    assign ifc_region_acc_fault_f1 = ~iccm_acc_in_range_f1 & iccm_acc_in_region_f1 ;

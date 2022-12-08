@@ -70,6 +70,7 @@ module dec_decode_ctl
    input logic [15:0] ifu_illegal_inst,               // 16b illegal inst from aligner
 
    input logic [31:1] dec_i0_pc_d,                    // pc
+   input logic [31:1] dec_i1_pc_d,                    // pc
 
    input logic lsu_freeze_dc3,                        // freeze pipe: decode -> dc3
    input logic lsu_halt_idle_any,                     // lsu idle: if fence instr & ~lsu_halt_idle_any then stall decode
@@ -275,6 +276,10 @@ module dec_decode_ctl
    output logic       dec_pause_state_cg,           // pause state for clock-gating
 
    output logic       dec_i0_load_e4,          // pipe down if load is i0 or not in case of lsu_freeze
+
+   // Static branch prediction
+   output logic         dec_takenbr, // Taken branch in decode (Static branchpred)
+   output logic [31:1]  dec_takenbr_path, // Taken branch path
 
    input  logic        scan_mode
    );
@@ -686,6 +691,10 @@ module dec_decode_ctl
          i1_dp.postsync = 1'b1;
       end
 
+`ifdef RV_STATIC_BRANCHPRED
+      i0_dp.postsync |= i0_predict_t;
+      i1_dp.postsync |= i1_predict_t;
+`endif
    end
 
    assign flush_lower_wb = dec_tlu_flush_lower_wb;
@@ -702,8 +711,15 @@ module dec_decode_ctl
    assign i0_predict_br =  i0_dp.condbr | i0_pcall | i0_pja | i0_pret;
    assign i1_predict_br =  i1_dp.condbr | i1_pcall | i1_pja | i1_pret;
 
+`ifdef RV_STATIC_BRANCHPRED
+   // Static branch prediction: Backward branches and jumps with imm are taken
+   assign i0_predict_nt = (~i0[31] & i0_dp.condbr) | i0_pret; // Let's assume RETs can't be predicted...
+   assign i0_predict_t  = ( i0[31] & i0_dp.condbr) | i0_pcall | i0_pja;
+`else
+   // Dynamic branch prediction
    assign i0_predict_nt = ~(dec_i0_brp.hist[1] & i0_brp_valid) & i0_predict_br;
    assign i0_predict_t  =  (dec_i0_brp.hist[1] & i0_brp_valid) & i0_predict_br;
+`endif
 
    assign i0_ap.valid =  (i0_dc.sec | i0_dc.alu | i0_dp.alu );
    assign i0_ap.add =    i0_dp.add;
@@ -736,8 +752,15 @@ module dec_decode_ctl
    assign i0_ap.predict_nt = i0_predict_nt;
    assign i0_ap.predict_t  = i0_predict_t;
 
+`ifdef RV_STATIC_BRANCHPRED
+   // Static branch prediction: Backward branches are taken, forward are not
+   assign i1_predict_nt = (~i1[31] & i1_dp.condbr) | i1_pret; // Let's assume RETs can't be predicted...
+   assign i1_predict_t  = ( i1[31] & i1_dp.condbr) | i1_pcall | i1_pja;
+`else
+   // Dynamic branch prediction
    assign i1_predict_nt = ~(dec_i1_brp.hist[1] & dec_i1_brp.valid) & i1_predict_br;
    assign i1_predict_t  =  (dec_i1_brp.hist[1] & dec_i1_brp.valid) & i1_predict_br;
+`endif
 
    assign i1_ap.valid =  (i1_dc.sec | i1_dc.alu | i1_dp.alu);
    assign i1_ap.add =    i1_dp.add;
@@ -1406,7 +1429,13 @@ end : cam_array
    assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze;
 
    assign dec_ib0_valid_eff_d = i0_valid_d & ~dec_i0_decode_d;
+
+`ifdef RV_STATIC_BRANCHPRED
+    // For static predictions, we flush after known-taken branches
+   assign dec_ib1_valid_eff_d = i1_valid_d & ~dec_i1_decode_d & ~i0_predict_t;
+`else
    assign dec_ib1_valid_eff_d = i1_valid_d & ~dec_i1_decode_d;
+`endif
 
 
 
@@ -2351,6 +2380,27 @@ end : cam_array
                      .offset(last_br_immed_e2[12:1]),
                      .dout(pred_correct_npc_e2[31:1])
                      );
+
+
+`ifdef RV_STATIC_BRANCHPRED
+    logic [31:1] takenbr_pc;
+    logic [12:1] takenbr_immed;
+
+    assign dec_takenbr = (i0_predict_t&dec_i0_decode_d) | (i1_predict_t&dec_i1_decode_d);
+
+    assign takenbr_pc = i0_predict_t ? dec_i0_pc_d : dec_i1_pc_d;
+    assign takenbr_immed = i0_predict_t ? i0_br_offset : i1_br_offset;
+
+    rvbradder ibradder_taken (
+                     .pc(takenbr_pc[31:1]),
+                     .offset(takenbr_immed[12:1]),
+                     .dout(dec_takenbr_path)
+                     );
+`else
+    assign dec_takenbr      = '0;
+    assign dec_takenbr_path = '0;
+`endif
+
 
 
 

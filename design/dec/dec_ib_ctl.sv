@@ -28,6 +28,8 @@ module dec_ib_ctl
 
    input logic exu_flush_final,                // all flush sources: primary/secondary alu's, trap
 
+   input logic dec_takenbr,
+
    input logic          dec_ib0_valid_eff_d,   // effective valid taking decode into account
    input logic          dec_ib1_valid_eff_d,
 
@@ -150,7 +152,7 @@ module dec_ib_ctl
 
 
 
-   rvdff #(1) flush_upperff (.*, .clk(free_clk), .din(exu_flush_final), .dout(flush_final));
+   rvdff #(1) flush_upperff (.*, .clk(free_clk), .din(exu_flush_final | dec_takenbr), .dout(flush_final));
 
    logic [3:0]   ibvalid;
 

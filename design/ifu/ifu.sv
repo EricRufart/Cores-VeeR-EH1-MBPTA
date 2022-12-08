@@ -53,6 +53,9 @@ module ifu
    input logic                       dec_tlu_bpred_disable, // disable all branch prediction
    input logic                       dec_tlu_core_ecc_disable,  // disable ecc checking and flagging
 
+   input logic dec_takenbr, // Taken branch in decode (Static branchpred)
+   input logic [31:1] dec_takenbr_path, // Taken branch path
+
    // AXI Write Channels - IFU never writes. So, 0 out mostly
    output logic                           ifu_axi_awvalid,
    input  logic                           ifu_axi_awready,

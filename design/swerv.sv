@@ -642,6 +642,9 @@ module swerv
    logic         dec_i0_alu_decode_d;
    logic         dec_i1_alu_decode_d;
 
+   logic         dec_takenbr; // Taken branch in decode (Static branchpred)
+   logic [31:1]  dec_takenbr_path; // Taken branch path
+
    rets_pkt_t exu_rets_e1_pkt;
    rets_pkt_t exu_rets_e4_pkt;
 
