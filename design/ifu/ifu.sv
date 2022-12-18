@@ -56,6 +56,9 @@ module ifu
    input logic dec_takenbr, // Taken branch in decode (Static branchpred)
    input logic [31:1] dec_takenbr_path, // Taken branch path
 
+   input logic         lock_cache,
+   input logic         lock_start,
+
    // AXI Write Channels - IFU never writes. So, 0 out mostly
    output logic                           ifu_axi_awvalid,
    input  logic                           ifu_axi_awready,
