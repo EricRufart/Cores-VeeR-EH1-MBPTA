@@ -281,6 +281,9 @@ module dec_decode_ctl
    output logic         dec_takenbr, // Taken branch in decode (Static branchpred)
    output logic [31:1]  dec_takenbr_path, // Taken branch path
 
+   output logic         lock_cache,
+   output logic         lock_start,
+
    input  logic        scan_mode
    );
 
@@ -2383,22 +2386,53 @@ end : cam_array
 
 
 `ifdef RV_STATIC_BRANCHPRED
-    logic [31:1] takenbr_pc;
+    logic [31:1] takenbr_pc, takenbr_path_n, last_pc, last_pc_ff;
     logic [12:1] takenbr_immed;
+    logic dec_takenbr_n, dec_takenbr_ff, takenbr_path_en, taken_is_call, was_call_ff;
+    
+    assign takenbr_path_en = (i0_predict_br|i1_predict_br) & ~freeze;
 
-    assign dec_takenbr = (i0_predict_t&dec_i0_decode_d) | (i1_predict_t&dec_i1_decode_d);
+    assign dec_takenbr_n = (i0_predict_t&dec_i0_decode_d) | (i1_predict_t&dec_i1_decode_d);
 
-    assign takenbr_pc = i0_predict_t ? dec_i0_pc_d : dec_i1_pc_d;
+    assign takenbr_pc    = i0_predict_t ? dec_i0_pc_d  : dec_i1_pc_d;
+    assign last_pc       = dec_i1_decode_d & ~i0_predict_t ? dec_i1_pc_d  : dec_i0_pc_d;
     assign takenbr_immed = i0_predict_t ? i0_br_offset : i1_br_offset;
+
+    assign taken_is_call = i0_predict_t ? i0_pcall & dec_i0_decode_d : i1_pcall & dec_i1_decode_d;
 
     rvbradder ibradder_taken (
                      .pc(takenbr_pc[31:1]),
                      .offset(takenbr_immed[12:1]),
-                     .dout(dec_takenbr_path)
+                     .dout(takenbr_path_n)
                      );
+
+   // Flop the outputs to ease timing closure
+   rvdff  #(1)  takenbrff (.*, .clk(active_clk), .din(dec_takenbr_n),  .dout(dec_takenbr_ff) );
+   rvdff  #(1)  callff (.*, .clk(active_clk), .din(taken_is_call),  .dout(was_call_ff) );
+   rvdffs #(31) taken_targetff (.*, .clk(active_clk), .en(takenbr_path_en), .din(takenbr_path_n),  .dout(dec_takenbr_path) );
+   rvdff  #(31) taken_pcff (.*, .clk(active_clk), .din(last_pc),  .dout(last_pc_ff) );
+   
+   assign dec_takenbr = dec_takenbr_ff & ~flush_final_e3;
+
+   // Put here the marvelous loop detector:
+   loop_detector #(
+    .ENTRIES(4)
+   ) loopdec (
+     .inst_valid         (i0_legal_decode_d ),
+     .is_call            (was_call_ff       ),
+     .dec_takenbr        (dec_takenbr_ff    ),
+     .dec_takenbr_target (dec_takenbr_path  ),
+     .last_pc            (last_pc_ff        ),
+     .lock_cache         (lock_cache        ),
+     .lock_start         (lock_start        ),
+     .*
+   );
+
 `else
     assign dec_takenbr      = '0;
     assign dec_takenbr_path = '0;
+    assign lock_cache       = '0;
+    assign lock_start       = '0;
 `endif
 
 

@@ -13,6 +13,7 @@ $RV_ROOT/design/ifu/ifu_ic_mem.sv
 $RV_ROOT/design/ifu/ifu_mem_ctl.sv
 $RV_ROOT/design/ifu/ifu_iccm_mem.sv
 $RV_ROOT/design/ifu/ifu.sv
+$RV_ROOT/design/dec/loop_detector.sv
 $RV_ROOT/design/dec/dec_decode_ctl.sv
 $RV_ROOT/design/dec/dec_gpr_ctl.sv
 $RV_ROOT/design/dec/dec_ib_ctl.sv

@@ -645,6 +645,9 @@ module swerv
    logic         dec_takenbr; // Taken branch in decode (Static branchpred)
    logic [31:1]  dec_takenbr_path; // Taken branch path
 
+   logic         lock_cache;
+   logic         lock_start;
+
    rets_pkt_t exu_rets_e1_pkt;
    rets_pkt_t exu_rets_e4_pkt;
 

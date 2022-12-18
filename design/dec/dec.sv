@@ -401,6 +401,9 @@ module dec
    output logic         dec_takenbr, // Taken branch in decode (Static branchpred)
    output logic [31:1]  dec_takenbr_path, // Taken branch path
 
+   output logic         lock_cache,
+   output logic         lock_start,
+
    input  logic        scan_mode
 
    );
