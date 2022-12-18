@@ -56,8 +56,8 @@ module ifu
    input logic dec_takenbr, // Taken branch in decode (Static branchpred)
    input logic [31:1] dec_takenbr_path, // Taken branch path
 
-   input logic         lock_cache,
-   input logic         lock_start,
+	 input logic lock_cache,
+   input logic lock_start,
 
    // AXI Write Channels - IFU never writes. So, 0 out mostly
    output logic                           ifu_axi_awvalid,
@@ -300,6 +300,12 @@ module ifu
    assign ifu_fetch_val[7:0] = ic_fetch_val_f2[7:0];
    assign ifu_fetch_pc[31:1] = ifc_fetch_addr_f2[31:1];
 
+
+`ifdef RV_ICACHE_LOCKING
+	 logic 	ic_to_lock;
+	 logic	release_locks;
+
+`endif
    // fetch control
    ifu_ifc_ctl ifc (.*
                     );
@@ -314,6 +320,7 @@ module ifu
    // icache
    ifu_mem_ctl mem_ctl
      (.*,
+		 `ifdef RV_ICACHE_LOCKING .ic_to_lock(lock_cache), .release_locks(lock_start), `endif
       .fetch_addr_f1(ifc_fetch_addr_f1),
       .ifu_icache_error_index(ifu_icache_error_index[16:6]),
       .ic_hit_f2(ic_hit_f2),

@@ -140,6 +140,10 @@ module ifu_mem_ctl
    output logic [33:0]               ifu_ic_debug_rd_data,       // debug data read
 `endif
 
+`ifdef RV_ICACHE_LOCKING
+	 input logic 											 ic_to_lock,
+	 input logic											 release_locks,
+`endif
    output logic [15:2]               ic_debug_addr,      // Read/Write addresss to the Icache.
    output logic                      ic_debug_rd_en,     // Icache debug rd
    output logic                      ic_debug_wr_en,     // Icache debug wr
@@ -225,8 +229,9 @@ module ifu_mem_ctl
    logic           axi_ifu_wr_en_new_wo_err  ;
    logic [63:0]    axi_ifu_wr_data_new ;
    logic [3:0]     axi_ic_wr_en ;
-
-   logic           reset_tag_valid_for_miss  ;
+	 logic [3:0] way_locked;
+   
+	 logic           reset_tag_valid_for_miss  ;
 
 
    logic [2:0]     way_status;
@@ -340,6 +345,9 @@ module ifu_mem_ctl
    logic         debug_data_clken;
    logic                   ifc_region_acc_fault_final_f1, ifc_region_acc_fault_memory, ifc_region_acc_okay;
 
+`ifdef RV_ICACHE_LOCKING
+	 logic [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] post_locked_idx;
+`endif
 
 `ifdef RV_ICACHE_ECC
    logic [19:0]  ic_wr_ecc;
@@ -491,8 +499,6 @@ module ifu_mem_ctl
     // use the real address for that
     assign imb_hash_in[31:1]     = sel_hold_imb ? imb_hash_ff[31:1] : {fetch_addr_f1_hashed[31:1]} ;
     
-    // Randomize the way status using a LFSR
-    lfsr_prng #() lfsr (.*, .clk(free_clk), .output_number_o(way_status_mb_in));
     
     // Hash the upper part of the PC
     logic [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] hashed_idx;
@@ -507,11 +513,18 @@ module ifu_mem_ctl
 
     // Replace only the index chunk in the hashed address
     assign fetch_addr_f1_hashed[31:ICACHE_TAG_HIGH] = fetch_addr_f1[31:ICACHE_TAG_HIGH]; 
-    assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = hashed_idx; 
+`ifdef RV_ICACHE_LOCKING
+		assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = (ic_wr_en[0] | ic_wr_en[1] | ic_wr_en[2]  | ic_wr_en[3]) ? post_locked_idx : hashed_idx;
+`else 
+		assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = hashed_idx;
+    // Randomize the way status using a LFSR
+    lfsr_prng #() lfsr (.*, .clk(free_clk), .output_number_o(way_status_mb_in));
+`endif
     assign fetch_addr_f1_hashed[ICACHE_TAG_LOW-1:1] = fetch_addr_f1[ICACHE_TAG_LOW-1:1]; 
 `else
     // No randomization
     assign way_status_mb_in[2:0] = ( miss_pending) ? way_status_mb_ff[2:0] : {way_status[2:0]} ;
+    assign imb_hash_in[31:1]     = imb_in;
     assign fetch_addr_f1_hashed[31:1] = fetch_addr_f1[31:1]; 
 `endif
 
@@ -571,9 +584,6 @@ module ifu_mem_ctl
 //      /        \      /        \        ('x' means don't care       ('_' means unchanged)
 //    way_0    way_1  way_2     way_3      don't care)
 
-
-
-
    assign replace_way_mb_any[3] = ( way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[3]& tagv_mb_ff[2] &  tagv_mb_ff[1] &  tagv_mb_ff[0]) ;
    assign replace_way_mb_any[2] = (~way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
@@ -583,7 +593,7 @@ module ifu_mem_ctl
    assign replace_way_mb_any[0] = (~way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[0] ) ;
 
-  assign way_status_hit_new[2:0] = ({3{ic_rd_hit[0]}} & {way_status[2] , 1'b1 , 1'b1}) |
+	assign way_status_hit_new[2:0] = ({3{ic_rd_hit[0]}} & {way_status[2] , 1'b1 , 1'b1}) |
                                    ({3{ic_rd_hit[1]}} & {way_status[2] , 1'b0 , 1'b1}) |
                                    ({3{ic_rd_hit[2]}} & {1'b1 ,way_status[1]  , 1'b0}) |
                                    ({3{ic_rd_hit[3]}} & {1'b0 ,way_status[1]  , 1'b0}) ;
@@ -1137,14 +1147,14 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
    assign  axi_ifu_wr_en_new_q       =  ifu_axi_rvalid_ff  & miss_pending & ~uncacheable_miss_ff & ~(|ifu_axi_rresp_ff[1:0]); // qualify with no-error conditions ;
    assign  axi_ifu_wr_en_new_wo_err  =  ifu_axi_rvalid_ff & miss_pending &  ~uncacheable_miss_ff;
    assign  axi_ifu_wr_data_new[63:0] =  ifu_axi_rdata_ff[63:0] ;
-
-   assign axi_w0_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending ;
+   
+	 assign axi_w0_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending ;
    assign axi_w1_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0010) & miss_pending ;
    assign axi_w2_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0100) & miss_pending ;
    assign axi_w3_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b1000) & miss_pending ;
 
-   assign axi_ic_wr_en[3:0] = {axi_w3_wren , axi_w2_wren , axi_w1_wren , axi_w0_wren} ;
-
+	assign axi_ic_wr_en[3:0] = {axi_w3_wren, axi_w2_wren, axi_w1_wren, axi_w0_wren} ;
+	 
    assign axi_w0_wren_last = axi_ifu_wr_en_new_wo_err & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending & axi_last_data_beat;
    assign axi_w1_wren_last = axi_ifu_wr_en_new_wo_err & (replace_way_mb_any[3:0] == 4'b0010) & miss_pending & axi_last_data_beat;
    assign axi_w2_wren_last = axi_ifu_wr_en_new_wo_err & (replace_way_mb_any[3:0] == 4'b0100) & miss_pending & axi_last_data_beat;
@@ -1333,6 +1343,71 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
                                       ((perr_ic_index_ff     [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW+5] == i ) &  perr_err_inv_way[2]) | reset_all_tags);
       assign tag_valid_w3_clken[i] = (((ifu_ic_rw_int_addr_ff[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW+5] == i ) &  ifu_tag_wren_ff[3] ) |
                                       ((perr_ic_index_ff     [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW+5] == i ) &  perr_err_inv_way[3]) | reset_all_tags);
+
+																			
+`ifdef RV_ICACHE_LOCKING
+	  logic [3:0] [ICACHE_TAG_DEPTH-1:0] ic_tag_locked_out;
+    for (j=0 ; j< ICACHE_TAG_DEPTH-1 ; j++) begin : LOCKED 
+         rvdffs #(1) ic_way0_lock (.*,
+									 .en(release_locks | ((ifu_ic_rw_int_addr_ff[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == j) && (ic_rd_hit[0] | ic_wr_en[0]))),
+                   .din((release_locks) ? 1'b0 : ic_to_lock),
+                   .dout(ic_tag_locked_out[0][j]));
+         rvdffs #(1) ic_way1_lock (.*,
+									 .en(release_locks | ((ifu_ic_rw_int_addr_ff[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == j) && (ic_rd_hit[1] | ic_wr_en[1]))),
+                   .din((release_locks) ? 1'b0 : ic_to_lock),
+                   .dout(ic_tag_locked_out[1][j]));
+         rvdffs #(1) ic_way2_lock (.*,
+									 .en(release_locks | ((ifu_ic_rw_int_addr_ff[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == j) && (ic_rd_hit [2] | ic_wr_en[2]))),
+                   .din((release_locks) ? 1'b0 : ic_to_lock),
+                   .dout(ic_tag_locked_out[2][j]));
+         rvdffs #(1) ic_way3_lock (.*,
+									 .en(release_locks | ((ifu_ic_rw_int_addr_ff[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == j) && (ic_rd_hit [3] | ic_wr_en[3]))),
+                   .din((release_locks) ? 1'b0 : ic_to_lock),
+                   .dout(ic_tag_locked_out[3][j]));
+    end //LOCKED
+  assign ic_tag_locked_out[i][ICACHE_TAG_DEPTH-1] = 1'b0;
+  logic [3:0] [ICACHE_TAG_DEPTH-1:0] nxt_idx;
+  logic [3:0] [ICACHE_TAG_DEPTH-1:0] nxt_idx_true;
+  logic [3:0] [ICACHE_TAG_DEPTH-1:0] nxt_idx_false;
+  logic [ICACHE_TAG_DEPTH-1:0] nxt_idx_comb;
+  logic [3:0] [ICACHE_TAG_DEPTH-1:0] idx_carry_false;
+  logic [3:0] [ICACHE_TAG_DEPTH-1:0] idx_carry_true;
+  logic [3:0] [ICACHE_TAG_DEPTH-1:0] idx_partial_true;
+  logic [3:0] [ICACHE_TAG_DEPTH-1:0] idx_partial_false;
+	logic [3:0][ICACHE_TAG_DEPTH-1:0] idx_to_correct;
+  always_comb begin : locked_out_mux
+    idx_to_correct = '0;
+		idx_to_correct[i][hashed_idx] = replace_way_mb_any[i];
+		way_locked[3:0] = 4'b1111;
+		idx_carry_true [i][0] = 1'b1;//idx_to_correct[i][ICACHE_TAG_DEPTH-1] & ic_tag_locked_out[i][ICACHE_TAG_DEPTH-1];
+		idx_carry_false [i][0] = 1'b0;//idx_to_correct[i][ICACHE_TAG_DEPTH-1] & ic_tag_locked_out[i][ICACHE_TAG_DEPTH-1];
+    for (int j=1; j< ICACHE_TAG_DEPTH-1; j++) begin : partial_calc
+			idx_partial_true [i][j] = idx_to_correct[i][j] | idx_carry_true[i][j-1];
+			idx_partial_false [i][j] = idx_to_correct[i][j] | idx_carry_false[i][j-1];
+    end
+    for (int j=0; j< ICACHE_TAG_DEPTH-1; j++) begin : locking_out
+			idx_carry_true [i][j] = idx_partial_true[i][j] & ic_tag_locked_out[i][j];
+			idx_carry_false [i][j] = idx_partial_false[i][j] & ic_tag_locked_out[i][j];
+			nxt_idx_true [i][j] = idx_partial_true[i][j] & !ic_tag_locked_out[i][j];
+			nxt_idx_false [i][j] = idx_partial_false[i][j] & !ic_tag_locked_out[i][j];
+	 	  nxt_idx[i] = (idx_carry_false[i][ICACHE_TAG_DEPTH-2]) ? nxt_idx_true[i] :	nxt_idx_false[i];
+    	if (!ic_tag_locked_out[i][j]) begin : valid_out
+      	way_locked[i] = 1'b0;
+      end
+			nxt_idx_comb[j] = nxt_idx[3][j] | nxt_idx[2][j] | nxt_idx[1][j] | nxt_idx[0][j];
+		end
+		nxt_idx_comb[ICACHE_TAG_DEPTH-1] = idx_to_correct[i][ICACHE_TAG_DEPTH-1];
+		post_locked_idx = '0; 
+		for (int j=0; j< ICACHE_TAG_DEPTH; j++) begin : processing_locks_idx
+    	if (nxt_idx_comb[j]) begin : set_idx
+				post_locked_idx = {(ICACHE_TAG_HIGH-ICACHE_TAG_LOW)'(j)};  
+			end
+		end
+  end
+`else
+ assign way_locked = '0;
+
+`endif
 
 `ifndef RV_FPGA_OPTIMIZE
       rvclkhdr way0_status_cgc ( .en(tag_valid_w0_clken[i]),   .l1clk(tag_valid_w0_clk[i]), .* );  // ifndef FPGA_OPTIMIZE
