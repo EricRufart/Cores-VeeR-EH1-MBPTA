@@ -301,11 +301,6 @@ module ifu
    assign ifu_fetch_pc[31:1] = ifc_fetch_addr_f2[31:1];
 
 
-`ifdef RV_ICACHE_LOCKING
-	 logic 	ic_to_lock;
-	 logic	release_locks;
-
-`endif
    // fetch control
    ifu_ifc_ctl ifc (.*
                     );
