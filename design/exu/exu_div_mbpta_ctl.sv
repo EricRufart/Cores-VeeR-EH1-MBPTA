@@ -47,10 +47,11 @@ module exu_div_mbpta_ctl
 	logic [ 5:0] counter_ff; // output of the counter
 	logic 		 running;
 	logic		 running_ff;
+	logic 	finished_ff;
 	logic [31:0] out_value;
 	logic [31:0] out_value_ff;
 
-	localparam NUMBERCYCLES = 6'h22; // 22 3F
+	localparam NUMBERCYCLES = 6'h24; // 22 3F
 
 	// launch the division and capture the finish value
 	exu_div_ctl div_e1    (.*,
@@ -66,21 +67,26 @@ module exu_div_mbpta_ctl
 
 	
 	// if we are running count
-	assign counter = running_ff == 1'b1 ? counter_ff + 1 : 6'b000000;
+	assign counter = (running == 1'b1 || dp.valid == 1'b1) ? counter_ff + 1 : 6'b000000;
 	// update running If counter is 24 (36 iterations) and running set to 1 -> set running to 0 (Stop) else if is running continue
-	assign running = counter == NUMBERCYCLES && running_ff ? 0'b0 : running_ff == 1'b1 ? 1'b1 : div_stall_out == 1'b1 ? 1'b1 : 1'b0;
+	
+	assign running = div_stall_out || running_ff && (counter_ff != NUMBERCYCLES);
+//	assign running = counter == NUMBERCYCLES && running_ff ? 0'b0 : running_ff == 1'b1 ? 1'b1 : div_stall_out == 1'b1 ? 1'b1 : 1'b0;
 	
 	//assign running = counter == 6'h24 ? 0'b0 : running_ff == 1'b1 ? running_ff : 1'b1;
 	//assign stall = div_stall_out && running_ff ? stall_ff : div_stall_out && !running_ff ? 1'b1 : 1'b0;
 	//assign finish = finish_out;
 	//assign finish_early = finish_early_out;
-	assign finish = counter == NUMBERCYCLES - 1 && running_ff ? 1'b1 : 1'b0;
-	assign out = counter == NUMBERCYCLES ? out_value : out_value_ff;
+	assign finish_early = 1'b0;
+	assign finish = (counter == NUMBERCYCLES) && running_ff;
+	//	assign out = counter == NUMBERCYCLES ? out_value : out_value_ff;
 	assign div_stall = running;
 	//assign div_stall = div_stall_out;
 
 	rvdff  #(6)  counter_base_ff      (.*, .clk(active_clk), .din(counter),   .dout(counter_ff));
 	rvdff  #(1)  running_base_ff      (.*, .clk(active_clk), .din(running),   .dout(running_ff));
-	rvdff  #(32)  out_base_ff         (.*, .clk(active_clk), .din(out), .dout(out_value_ff));
+	rvdff  #(1)  finished_base_ff      (.*, .clk(active_clk), .din(finish_early_out | finish_out),   .dout(finished_ff));
+	//rvdff  #(32)  out_base_ff         (.*, .clk(active_clk), .din(out), .dout(out_value_ff)));
+	rvdffs  #(32)  out_base_ff         (.*, .clk(active_clk), .din(out_value), .dout(out), .en(finished_ff/*finish_early_out || finish_out*/));
 
 endmodule // exu_div_mbpta_ctl
