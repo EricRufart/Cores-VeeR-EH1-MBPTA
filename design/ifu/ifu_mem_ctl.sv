@@ -509,7 +509,9 @@ module ifu_mem_ctl
         .WORD_SIZE (32-ICACHE_TAG_LOW)
     )
     inst_hcf (
+				.*,
         .clk_i                (clk ),
+				.randomize_i					(!rst_l || reset_all_tags),
         .addr_i               (fetch_addr_f1[31:ICACHE_TAG_LOW]),
         .line_index_o         (hashed_idx)
     );
@@ -519,11 +521,37 @@ module ifu_mem_ctl
     assign fetch_addr_f1_hashed[ICACHE_TAG_LOW-1:1] = fetch_addr_f1[ICACHE_TAG_LOW-1:1]; 
 	
 `ifdef RV_ICACHE_LOCKING
-		// Randomize the way status using a LFSR
-    lfsr_prng #() lfsr (.*, .clk(free_clk), .output_number_o(way_status_mb_locking));
+// Randomize the way status using a LFSR
+	`ifndef SYNTHESIS
+	 longint rand_way_seed;
+	 logic[63:0] seed;
+	 initial begin
+	    if($value$plusargs("way_seed=%h", rand_way_seed)) begin
+				seed = rand_way_seed;
+			end else begin
+				seed = '0;
+			end
+	 end 
+   lfsr_prng #() lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_locking));
 `else
-		// Randomize the way status using a LFSR
-    lfsr_prng #() lfsr (.*, .clk(free_clk), .output_number_o(way_status_mb_in));
+    lfsr_prng #() lfsr (.*, .seed_i('0), .clk(free_clk), .output_number_o(way_status_mb_locking));
+`endif	
+`else
+	// Randomize the way status using a LFSR
+	`ifndef SYNTHESIS
+	   longint rand_way_seed;
+	   logic[63:0] seed;
+	   initial begin
+	     if($value$plusargs("way_seed=%h", rand_way_seed)) begin
+				seed = rand_way_seed;
+			 end else begin
+				seed = '0;
+			 end
+	  end 
+    lfsr_prng #() lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_in));
+	`else
+    lfsr_prng #() lfsr (.*, .seed_i('0), .clk(free_clk), .output_number_o(way_status_mb_in));
+	`endif
 `endif
 
 `else	
