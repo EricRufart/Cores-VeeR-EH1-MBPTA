@@ -141,8 +141,8 @@ module ifu_mem_ctl
 `endif
 
 `ifdef RV_ICACHE_LOCKING
-	 input logic 											 ic_to_lock,
-	 input logic											 release_locks,
+   input logic                       ic_to_lock,
+   input logic                       release_locks,
 `endif
    output logic [15:2]               ic_debug_addr,      // Read/Write addresss to the Icache.
    output logic                      ic_debug_rd_en,     // Icache debug rd
@@ -230,7 +230,7 @@ module ifu_mem_ctl
    logic [63:0]    axi_ifu_wr_data_new ;
    logic [3:0]     axi_ic_wr_en ;
    
-	 logic           reset_tag_valid_for_miss  ;
+   logic           reset_tag_valid_for_miss  ;
 
 
    logic [2:0]     way_status;
@@ -346,11 +346,11 @@ module ifu_mem_ctl
 
 `ifdef RV_ICACHE_LOCKING
   logic [3:0] sel_locked;
-	logic [3:0] wr_en_stalled;
-	logic [3:0] valid_set;
+  logic [3:0] wr_en_stalled;
+  logic [3:0] valid_set;
   logic [3:0] replace_way_mb_locked;
-	logic [3:0] [ICACHE_TAG_DEPTH-1:0] ic_tag_locked_out;
-	logic[2:0] way_status_mb_locking;
+  logic [3:0] [ICACHE_TAG_DEPTH-1:0] ic_tag_locked_out;
+  logic[2:0] way_status_mb_locking;
 `endif
 
 `ifdef RV_ICACHE_ECC
@@ -509,52 +509,42 @@ module ifu_mem_ctl
         .WORD_SIZE (32-ICACHE_TAG_LOW)
     )
     inst_hcf (
-				.*,
-        .clk_i                (clk ),
-				.randomize_i					(!rst_l || reset_all_tags),
-        .addr_i               (fetch_addr_f1[31:ICACHE_TAG_LOW]),
-        .line_index_o         (hashed_idx)
+        .*,
+        .clk_i        (clk ),
+        .randomize_i  (!rst_l || reset_all_tags),
+        .addr_i       (fetch_addr_f1[31:ICACHE_TAG_LOW]),
+        .line_index_o (hashed_idx)
     );
     // Replace only the index chunk in the hashed address
     assign fetch_addr_f1_hashed[31:ICACHE_TAG_HIGH] = fetch_addr_f1[31:ICACHE_TAG_HIGH]; 
-		assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = hashed_idx;
+    assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = hashed_idx;
     assign fetch_addr_f1_hashed[ICACHE_TAG_LOW-1:1] = fetch_addr_f1[ICACHE_TAG_LOW-1:1]; 
-	
-`ifdef RV_ICACHE_LOCKING
-// Randomize the way status using a LFSR
-	`ifndef SYNTHESIS
-	 longint rand_way_seed;
-	 logic[63:0] seed;
-	 initial begin
-	    if($value$plusargs("way_seed=%h", rand_way_seed)) begin
-				seed = rand_way_seed;
-			end else begin
-				seed = '0;
-			end
-	 end 
-   lfsr_prng #() lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_locking));
+
+    // Fetch a seed for the LFSR
+    logic[63:0] seed;
+`ifndef SYNTHESIS
+     longint rand_way_seed;
+     initial begin
+        if($value$plusargs("way_seed=%h", rand_way_seed)) begin
+            seed = rand_way_seed;
+        end else begin
+            seed = '0;
+        end
+     end 
 `else
-    lfsr_prng #() lfsr (.*, .seed_i('0), .clk(free_clk), .output_number_o(way_status_mb_locking));
-`endif	
-`else
-	// Randomize the way status using a LFSR
-	`ifndef SYNTHESIS
-	   longint rand_way_seed;
-	   logic[63:0] seed;
-	   initial begin
-	     if($value$plusargs("way_seed=%h", rand_way_seed)) begin
-				seed = rand_way_seed;
-			 end else begin
-				seed = '0;
-			 end
-	  end 
-    lfsr_prng #() lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_in));
-	`else
-    lfsr_prng #() lfsr (.*, .seed_i('0), .clk(free_clk), .output_number_o(way_status_mb_in));
-	`endif
+    // Not in sim, hardcide it to 0
+    assign seed = '0;
 `endif
 
-`else	
+`ifdef RV_ICACHE_LOCKING
+    // Randomize the way status using a LFSR
+    lfsr_prng #($bits(way_status_mb_locking)) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_locking));
+`else
+    // Randomize the way status using a LFSR
+    lfsr_prng #($bits(way_status_mb_in)) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_in));
+`endif
+
+`else
     // No randomization
 
     assign imb_hash_in[31:1]     = imb_in;
@@ -619,7 +609,7 @@ module ifu_mem_ctl
 //    way_0    way_1  way_2     way_3      don't care)
 
 `ifdef RV_ICACHE_LOCKING
-	 assign replace_way_mb_locked[3] = ( way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
+   assign replace_way_mb_locked[3] = ( way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[3]& tagv_mb_ff[2] &  tagv_mb_ff[1] &  tagv_mb_ff[0]) ;
    assign replace_way_mb_locked[2] = (~way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[2]& tagv_mb_ff[1] &  tagv_mb_ff[0]) ;
@@ -627,7 +617,7 @@ module ifu_mem_ctl
                                   (~tagv_mb_ff[1]& tagv_mb_ff[0] ) ;
    assign replace_way_mb_locked[0] = (~way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[0] ) ;
-`else				
+`else
    assign replace_way_mb_any[3] = ( way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[3]& tagv_mb_ff[2] &  tagv_mb_ff[1] &  tagv_mb_ff[0]) ;
    assign replace_way_mb_any[2] = (~way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
@@ -637,7 +627,7 @@ module ifu_mem_ctl
    assign replace_way_mb_any[0] = (~way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[0] ) ;
 `endif
-	assign way_status_hit_new[2:0] = ({3{ic_rd_hit[0]}} & {way_status[2] , 1'b1 , 1'b1}) |
+   assign way_status_hit_new[2:0] = ({3{ic_rd_hit[0]}} & {way_status[2] , 1'b1 , 1'b1}) |
                                    ({3{ic_rd_hit[1]}} & {way_status[2] , 1'b0 , 1'b1}) |
                                    ({3{ic_rd_hit[2]}} & {1'b1 ,way_status[1]  , 1'b0}) |
                                    ({3{ic_rd_hit[3]}} & {1'b0 ,way_status[1]  , 1'b0}) ;
@@ -1192,13 +1182,13 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
    assign  axi_ifu_wr_en_new_wo_err  =  ifu_axi_rvalid_ff & miss_pending &  ~uncacheable_miss_ff;
    assign  axi_ifu_wr_data_new[63:0] =  ifu_axi_rdata_ff[63:0] ;
    
-	 assign axi_w0_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending ;
+     assign axi_w0_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending ;
    assign axi_w1_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0010) & miss_pending ;
    assign axi_w2_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0100) & miss_pending ;
    assign axi_w3_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b1000) & miss_pending ;
 
-	assign axi_ic_wr_en[3:0] = {axi_w3_wren, axi_w2_wren, axi_w1_wren, axi_w0_wren} ;
-	 
+   assign axi_ic_wr_en[3:0] = {axi_w3_wren, axi_w2_wren, axi_w1_wren, axi_w0_wren} ;
+
    assign axi_w0_wren_last = axi_ifu_wr_en_new_wo_err & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending & axi_last_data_beat;
    assign axi_w1_wren_last = axi_ifu_wr_en_new_wo_err & (replace_way_mb_any[3:0] == 4'b0010) & miss_pending & axi_last_data_beat;
    assign axi_w2_wren_last = axi_ifu_wr_en_new_wo_err & (replace_way_mb_any[3:0] == 4'b0100) & miss_pending & axi_last_data_beat;
@@ -1388,56 +1378,57 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
       assign tag_valid_w3_clken[i] = (((ifu_ic_rw_int_addr_ff[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW+5] == i ) &  ifu_tag_wren_ff[3] ) |
                                       ((perr_ic_index_ff     [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW+5] == i ) &  perr_err_inv_way[3]) | reset_all_tags);
 
-																			
-`ifdef RV_ICACHE_LOCKING
-    for (j=0 ; j< 32; j++) begin : LOCKED 
-         rvdffs #(1) ic_way0_lock (.*,
-									 .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit[0] | ic_wr_en[0]))),
-                   .din((release_locks) ? 1'b0 : ic_to_lock),
-                   .dout(ic_tag_locked_out[0][32*i+j]));
-         rvdffs #(1) ic_way1_lock (.*,
-									 .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit[1] | ic_wr_en[1]))),
-                   .din((release_locks) ? 1'b0 : ic_to_lock),
-                   .dout(ic_tag_locked_out[1][32*i+j]));
-         rvdffs #(1) ic_way2_lock (.*,
-									 .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit [2] | ic_wr_en[2]))),
-                   .din((release_locks) ? 1'b0 : ic_to_lock),
-                   .dout(ic_tag_locked_out[2][32*i+j]));
-	 end //LOCKED
 
-	rvdffs #(4) ic_wren_copy (.*,
-						.en(axi_ifu_wr_en_new_q),
-       			.din(ic_wr_en),
-    		    .dout(wr_en_stalled));
+`ifdef RV_ICACHE_LOCKING
+  for (j=0 ; j< 32; j++) begin : LOCKED 
+    rvdffs #(1) ic_way0_lock (.*,
+         .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit[0] | ic_wr_en[0]))),
+         .din((release_locks) ? 1'b0 : ic_to_lock),
+         .dout(ic_tag_locked_out[0][32*i+j]));
+    rvdffs #(1) ic_way1_lock (.*,
+         .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit[1] | ic_wr_en[1]))),
+         .din((release_locks) ? 1'b0 : ic_to_lock),
+         .dout(ic_tag_locked_out[1][32*i+j]));
+    rvdffs #(1) ic_way2_lock (.*,
+         .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit [2] | ic_wr_en[2]))),
+         .din((release_locks) ? 1'b0 : ic_to_lock),
+         .dout(ic_tag_locked_out[2][32*i+j]));
+   end //LOCKED
+
+  rvdffs #(4) ic_wren_copy (.*,
+       .en(axi_ifu_wr_en_new_q),
+       .din(ic_wr_en),
+       .dout(wr_en_stalled));
+
   always_comb begin : locked_out_mux
-		valid_set = {ic_tag_valid_out[3][hashed_idx] ,ic_tag_valid_out[2][hashed_idx], ic_tag_valid_out[1][hashed_idx], ic_tag_valid_out[0][hashed_idx]};
-		sel_locked = {/*ic_tag_locked_out[3][hashed_idx]*/ 1'b0 ,ic_tag_locked_out[2][hashed_idx], ic_tag_locked_out[1][hashed_idx], ic_tag_locked_out[0][hashed_idx]};
-		way_status_mb_in = way_status_mb_locking;
-		//replace_way_mb_any = replace_way_mb_locked;
-		replace_way_mb_any = '0;
-		if (sel_mb_addr_ff & sel_mb_addr) begin
-			replace_way_mb_any = wr_en_stalled;
-		end /*else if(replace_way_mb_locked != 4'b0000) begin 
-			if(valid_set != 4'b1111) begin
-				if(!valid_set[0]) begin
-					replace_way_mb_any = 4'b0001;
-				end else if(!valid_set[1]) begin
-					replace_way_mb_any = 4'b0010;
-				end	else if(!valid_set[2]) begin
-					replace_way_mb_any = 4'b0100;
+    valid_set = {ic_tag_valid_out[3][hashed_idx] ,ic_tag_valid_out[2][hashed_idx], ic_tag_valid_out[1][hashed_idx], ic_tag_valid_out[0][hashed_idx]};
+    sel_locked = {/*ic_tag_locked_out[3][hashed_idx]*/ 1'b0 ,ic_tag_locked_out[2][hashed_idx], ic_tag_locked_out[1][hashed_idx], ic_tag_locked_out[0][hashed_idx]};
+    way_status_mb_in = way_status_mb_locking;
+    //replace_way_mb_any = replace_way_mb_locked;
+    replace_way_mb_any = '0;
+    if (sel_mb_addr_ff & sel_mb_addr) begin
+      replace_way_mb_any = wr_en_stalled;
+    end /*else if(replace_way_mb_locked != 4'b0000) begin 
+      if(valid_set != 4'b1111) begin
+        if(!valid_set[0]) begin
+          replace_way_mb_any = 4'b0001;
+        end else if(!valid_set[1]) begin
+          replace_way_mb_any = 4'b0010;
+        end  else if(!valid_set[2]) begin
+          replace_way_mb_any = 4'b0100;
                 end else begin
-					replace_way_mb_any = 4'b1000;
-				end
-			end*/ else if(replace_way_mb_locked[0]) begin
-					replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[1] & sel_locked[0], !sel_locked[0]  };
+          replace_way_mb_any = 4'b1000;
+        end
+      end*/ else if(replace_way_mb_locked[0]) begin
+          replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[1] & sel_locked[0], !sel_locked[0]  };
             end else if(replace_way_mb_locked[1]) begin
-					replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1],  !sel_locked[1], !sel_locked[0] & sel_locked[1] & sel_locked[2]};
-				end else if(replace_way_mb_locked[2]) begin
-					replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0],  !sel_locked[2], !sel_locked[1] & sel_locked[0] & sel_locked[2], sel_locked[2] & !sel_locked[0]};
-				end else if(replace_way_mb_locked[3]) begin
-					replace_way_mb_any = 4'b1000;
-				//end
-  	 end
+          replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1],  !sel_locked[1], !sel_locked[0] & sel_locked[1] & sel_locked[2]};
+        end else if(replace_way_mb_locked[2]) begin
+          replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0],  !sel_locked[2], !sel_locked[1] & sel_locked[0] & sel_locked[2], sel_locked[2] & !sel_locked[0]};
+        end else if(replace_way_mb_locked[3]) begin
+          replace_way_mb_any = 4'b1000;
+        //end
+     end
   end
 
 //assign ic_wr_en[3:0]   = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : axi_ic_wr_en[3:0];
