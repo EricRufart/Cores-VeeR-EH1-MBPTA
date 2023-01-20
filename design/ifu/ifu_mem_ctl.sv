@@ -497,6 +497,7 @@ module ifu_mem_ctl
 
    assign uncacheable_miss_in   = sel_hold_imb ? uncacheable_miss_ff : ifc_fetch_uncacheable_f1 ;
    assign imb_in[31:1]          = sel_hold_imb ? imb_ff[31:1] : {fetch_addr_f1[31:1]} ;
+
 `ifdef RV_ICACHE_RANDOM_PLACEMENT
     // Keep hashed imb addr separate, as the regular imb is used for the AXI access, and we should
     // use the real address for that
@@ -541,11 +542,12 @@ module ifu_mem_ctl
     lfsr_prng #($bits(way_status_mb_locking)) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_locking));
 `else
     // Randomize the way status using a LFSR
-    lfsr_prng #($bits(way_status_mb_in)) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_in));
+   logic [2:0]     way_status_mb_rand;
+    lfsr_prng #($bits(way_status_mb_in)) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(way_status_mb_rand));
+    assign way_status_mb_in[2:0] = ( miss_pending) ? way_status_mb_ff[2:0] : {way_status_mb_rand[2:0]} ;
 `endif
 
-`else
-    // No randomization
+`else // No randomization
 
     assign imb_hash_in[31:1]     = imb_in;
     assign fetch_addr_f1_hashed[31:1] = fetch_addr_f1[31:1]; 
@@ -1182,7 +1184,7 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
    assign  axi_ifu_wr_en_new_wo_err  =  ifu_axi_rvalid_ff & miss_pending &  ~uncacheable_miss_ff;
    assign  axi_ifu_wr_data_new[63:0] =  ifu_axi_rdata_ff[63:0] ;
    
-     assign axi_w0_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending ;
+   assign axi_w0_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending ;
    assign axi_w1_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0010) & miss_pending ;
    assign axi_w2_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0100) & miss_pending ;
    assign axi_w3_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b1000) & miss_pending ;
