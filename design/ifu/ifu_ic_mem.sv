@@ -445,24 +445,10 @@ end else begin: OTHERS
  `endif
 end
     
-`ifdef RV_ICACHE_RANDOM_PLACEMENT2
-    logic [6-1:0] random_set;
-    hash_cache_function_tag #(
-        .WORD_SIZE (32)
-    )
-    inst_hcf_tag (
-        .clk_i                (clk ),
-        .addr_i               (ic_rw_addr),
-        .line_index_o         (random_set)
-    );
-    assign ic_rw_addr_q[ICACHE_TAG_HIGH-1:6] = (ic_debug_rd_en | ic_debug_wr_en) ?
-                                                ic_debug_addr[ICACHE_TAG_HIGH-1:6] : 
-                                                random_set ;
-  `else
+
     assign ic_rw_addr_q[ICACHE_TAG_HIGH-1:6] = (ic_debug_rd_en | ic_debug_wr_en) ?
                                                 ic_debug_addr[ICACHE_TAG_HIGH-1:6] :
                                                 ic_rw_addr[ICACHE_TAG_HIGH-1:6] ;
-  `endif
     
 
 
