@@ -730,7 +730,7 @@ module hash_cache_function_tag #(
       assign rotate_5  = (addr_i >> random_number_w[14:10]) | (addr_i <<  (WORD_SIZE - {{27{1'b0}},random_number_w[14:10]}));
    end
 
-    assign output_xor_0 = addr_i[WORD_SIZE-1:0] ^ random_number_w;
+    assign output_xor_0 = rotate_3[WORD_SIZE-1:0] ^ random_number_w;
     assign output_xor_1 = output_xor_0[0+:WORD_SIZE/2] ^ output_xor_0[WORD_SIZE/2+:WORD_SIZE/2];
     //assign output_xor_2 = output_xor_0[0+:WORD_SIZE/2] ^ output_xor_0[WORD_SIZE/2+:WORD_SIZE/2];
 
