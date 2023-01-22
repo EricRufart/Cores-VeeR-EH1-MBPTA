@@ -450,7 +450,7 @@ module ifu_mem_ctl
                   miss_state_en =  exu_flush_final | dec_takenbr | flush_final_f2 | ic_byp_hit_f2   ;
          end
          MISS_WAIT: begin : miss_wait
-                  miss_nxtstate =  (exu_flush_final & ~(ifu_wr_en_new & last_beat)) ? HIT_U_MISS  : IDLE ;
+                  miss_nxtstate =  ((exu_flush_final | dec_takenbr) & ~(ifu_wr_en_new & last_beat)) ? HIT_U_MISS  : IDLE ;
                   miss_state_en =   exu_flush_final | dec_takenbr | (ifu_wr_en_new & last_beat)  ;
          end
          HIT_U_MISS: begin : hit_u_miss
