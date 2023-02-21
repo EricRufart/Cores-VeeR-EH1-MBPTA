@@ -23,7 +23,7 @@ def run_test(test, is_intr):
 
     shutil.copy(test, mydir/"program.hex")
     tstart = time.time()
-    res = subprocess.run(veer_exec, cwd=mydir, stdout=subprocess.PIPE, universal_newlines=True)
+    res = subprocess.run([veer_exec, "+hash_seed=0", "+way_seed=0"], cwd=mydir, stdout=subprocess.PIPE, universal_newlines=True)
     elapsed = time.time() - tstart
     with open(mydir/"stdout.log", "w") as f:
         f.write(res.stdout)
