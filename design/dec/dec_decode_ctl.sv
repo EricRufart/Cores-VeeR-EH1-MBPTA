@@ -1429,7 +1429,11 @@ end : cam_array
 
    // only decode i1 if legal and i0 not illegal - csr's cant decode as i1
    //
-   assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze;
+`ifdef RV_ALWAYS_MISSPRED
+	 assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze & ~(i0_ap.predict_nt & (dec_i1_pc_d > dec_i0_pc_d)); 
+`else
+	 assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze;
+`endif
 
    assign dec_ib0_valid_eff_d = i0_valid_d & ~dec_i0_decode_d;
 

@@ -29,6 +29,9 @@ module exu_alu_ctl
    input logic [31:0] a,                  // A operand
    input logic [31:0] b,                  // B operand
    input logic [31:1] pc,                 // for pc=pc+2,4 calculations
+	`ifdef RV_ALWAYS_MISSPRED
+		output logic fake_misspred,
+	`endif
 
    input logic valid,                     // Valid
    input logic flush,                     // Flush pipeline
@@ -76,7 +79,7 @@ module exu_alu_ctl
 
    logic [31:1]         pcout;
 
-   logic                valid_ff;
+   logic          valid_ff;
 
    logic [31:0]         ashift;
    logic                cond_mispredict;
@@ -217,25 +220,39 @@ module exu_alu_ctl
    // pred_correct is for the npc logic
    // pred_correct indicates not to use the flush_path
    // for any_jal pred_correct==0
-
+`ifdef RV_ALWAYS_MISSPRED
+   assign pred_correct = ((ap.predict_nt & ~actual_taken) |
+                          (ap.predict_t  &  actual_taken)) &
+													~(ap.beq | ap.bne | ap.blt | ap.bge) & ~any_jal;
+	 
+	assign cond_mispredict = ((ap.predict_t & ~actual_taken) |
+                            (ap.predict_nt & actual_taken)) | 
+														((ap.predict_t | ap.predict_nt) & (ap.beq | ap.bne | ap.blt | ap.bge));
+   logic fake;
+	 assign fake = (ap.predict_nt & ~actual_taken) | (ap.predict_t & actual_taken);
+	 // for any_jal adder output is the flush path
+   assign flush_path[31:1] = (any_jal) ? aout[31:1] :/* (fake) ?  pc[31:1] :*/ pcout[31:1];
+	 assign fake_misspred=fake;
+`else
    assign pred_correct = ((ap.predict_nt & ~actual_taken) |
                           (ap.predict_t  &  actual_taken)) & ~any_jal;
-
+   
+	 // pcall and pret are included here
+	 assign cond_mispredict = (ap.predict_t & ~actual_taken) |
+                            (ap.predict_nt & actual_taken);
 
    // for any_jal adder output is the flush path
    assign flush_path[31:1] = (any_jal) ? aout[31:1] : pcout[31:1];
+`endif
 
 
-   // pcall and pret are included here
-   assign cond_mispredict = (ap.predict_t & ~actual_taken) |
-                            (ap.predict_nt & actual_taken);
+
 
    // target mispredicts on ret's
 
    assign target_mispredict = pp_ff.pret & (pp_ff.prett[31:1] != aout[31:1]);
 
-   assign flush_upper = ( ap.jal | cond_mispredict | target_mispredict) & valid_ff & ~flush & ~freeze;
-
+		assign flush_upper = ( ap.jal | cond_mispredict | target_mispredict) & valid_ff & ~flush & ~freeze;
 
    // .i 3
    // .o 2
@@ -263,11 +280,18 @@ module exu_alu_ctl
    always_comb begin
       predict_p_ff = pp_ff;
 
-      predict_p_ff.misp    = (valid_ff) ? (cond_mispredict | target_mispredict) & ~flush : pp_ff.misp;
-      predict_p_ff.ataken  = (valid_ff) ? actual_taken : pp_ff.ataken;
+/*`ifdef RV_ALWAYS_MISSPRED
+			predict_p_ff.misp    = (valid_ff) ? (cond_mispredict | target_mispredict) : & ~flush : pp_ff.misp;
+      predict_p_ff.ataken  = (valid_ff) ? (fake ? ~actual_taken : actual_taken) : pp_ff.ataken;
       predict_p_ff.hist[1] = (valid_ff) ? newhist[1] : pp_ff.hist[1];
       predict_p_ff.hist[0] = (valid_ff) ? newhist[0] : pp_ff.hist[0];
 
+`else*/
+			predict_p_ff.misp    = (valid_ff) ? (cond_mispredict | target_mispredict) & ~flush : pp_ff.misp;
+      predict_p_ff.ataken  = (valid_ff) ? actual_taken : pp_ff.ataken;
+      predict_p_ff.hist[1] = (valid_ff) ? newhist[1] : pp_ff.hist[1];
+      predict_p_ff.hist[0] = (valid_ff) ? newhist[0] : pp_ff.hist[0];
+//`endif
    end
 
 
