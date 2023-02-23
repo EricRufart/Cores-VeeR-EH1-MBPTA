@@ -615,6 +615,26 @@ module exu
    assign i1_pred_correct_lower_e4   = '0;
 
 `else
+  logic [31:1] flush_path_aux_i0s, flush_path_aux_i1s;
+ 	logic flush_aux_i0s, flush_aux_i1s;
+
+`ifdef RV_ALWAYS_MISSPRED
+	logic fake_i0s, fake_i1s;
+	logic [31:1] i0_pc_e1, i0_pc_e2;
+	rvdff #(31) i0e1pcff (.*, .din(dec_i0_pc_d[31:1]), .dout(i0_pc_e1[31:1]));
+	rvdff #(31) i0e2pcff (.*, .din(i0_pc_e1[31:1]), .dout(i0_pc_e2[31:1]));
+
+	assign exu_i0_flush_path_e4 = (fake_i0s) ?((dec_i0_pc_e3 > i0_alu_pc_nc) ? dec_i0_pc_e3 : (i0_pc_e2 > dec_i0_pc_e3 ? i0_pc_e2 : (i0_pc_e1 > dec_i0_pc_e3 ? i0_pc_e1 : (dec_i0_pc_d > dec_i0_pc_e3 ? dec_i0_pc_d : ifu_i0_pc)))) :  flush_path_aux_i0s;
+	assign exu_i1_flush_path_e4 = (fake_i1s) ? dec_i0_pc_e3 : flush_path_aux_i1s;
+	assign exu_i0_flush_lower_e4 = flush_aux_i0s;
+	assign exu_i1_flush_lower_e4 = flush_aux_i1s;
+`else
+	assign exu_i0_flush_path_e4 = flush_path_aux_i0s;
+	assign exu_i1_flush_path_e4 = flush_path_aux_i1s;
+	assign exu_i0_flush_lower_e4 = flush_aux_i0s;
+	assign exu_i1_flush_lower_e4 = flush_aux_i1s;
+`endif
+
 
    exu_alu_ctl i0_alu_e4 (.*,
                           .freeze        ( 1'b0                        ),   // I
@@ -626,10 +646,13 @@ module exu
                           .b             ( i0_rs2_e3_final[31:0]       ),   // I
                           .pc            ( dec_i0_pc_e3[31:1]          ),   // I
                           .brimm         ( i0_br_immed_e3[12:1]        ),   // I
+`ifdef RV_ALWAYS_MISSPRED
+    											.fake_misspred ( fake_i0s										 ),
+`endif
                           .ap            ( i0_ap_e4                    ),   // I
                           .out           ( exu_i0_result_e4[31:0]      ),   // O
-                          .flush_upper   ( exu_i0_flush_lower_e4       ),   // O
-                          .flush_path    ( exu_i0_flush_path_e4[31:1]  ),   // O
+                          .flush_upper   ( flush_aux_i0s       ),   // O
+                          .flush_path    ( flush_path_aux_i0s[31:1]  ),   // O
                           .predict_p_ff  ( i0_predict_p_e4             ),   // O
                           .pc_ff         ( i0_alu_pc_nc[31:1]          ),   // O
                           .pred_correct  ( i0_pred_correct_lower_e4    )    // O
@@ -645,11 +668,14 @@ module exu
                           .a             ( i1_rs1_e3_final[31:0]       ),   // I
                           .b             ( i1_rs2_e3_final[31:0]       ),   // I
                           .pc            ( dec_i1_pc_e3[31:1]          ),   // I
+`ifdef RV_ALWAYS_MISSPRED
+    											.fake_misspred ( fake_i1s										 ),
+`endif
                           .brimm         ( i1_br_immed_e3[12:1]        ),   // I
                           .ap            ( i1_ap_e4                    ),   // I
                           .out           ( exu_i1_result_e4[31:0]      ),   // O
-                          .flush_upper   ( exu_i1_flush_lower_e4       ),   // O
-                          .flush_path    ( exu_i1_flush_path_e4[31:1]  ),   // O
+                          .flush_upper   ( flush_aux_i1s				       ),   // O
+                          .flush_path    ( flush_path_aux_i1s[31:1]  ),   // O
                           .predict_p_ff  ( i1_predict_p_e4             ),   // O
                           .pc_ff         ( i1_alu_pc_nc[31:1]          ),   // O
                           .pred_correct  ( i1_pred_correct_lower_e4    )    // O

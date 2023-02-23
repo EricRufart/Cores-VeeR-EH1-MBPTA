@@ -513,13 +513,15 @@ rvdffs #(4) ic_wren_copy (.*,
     
     // Hash the upper part of the PC
     logic [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] hashed_idx;
-    hash_cache_function_tag #(
+		logic rst_ff;
+		always_ff @(posedge clk) rst_ff <= rst_l;
+		hash_cache_function_tag #(
         .WORD_SIZE (32-ICACHE_TAG_LOW)
     )
     inst_hcf (
         .*,
         .clk_i        (clk ),
-        .randomize_i  (!rst_l || reset_all_tags),
+        .randomize_i  (!rst_ff || reset_all_tags),
         .addr_i       (fetch_addr_f1[31:ICACHE_TAG_LOW]),
         .line_index_o (hashed_idx)
     );
@@ -533,7 +535,7 @@ rvdffs #(4) ic_wren_copy (.*,
 `ifndef SYNTHESIS
      longint rand_way_seed;
      initial begin
-        if($value$plusargs("way_seed=%h", rand_way_seed)) begin
+        if($value$plusargs("way_seed=%d", rand_way_seed)) begin
             seed = rand_way_seed;
         end else begin
             seed = '0;

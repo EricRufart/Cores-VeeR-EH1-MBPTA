@@ -694,15 +694,19 @@ module hash_cache_function_tag #(
 `ifndef SYNTHESIS
 	 initial begin
 	    longint hash_seed;
-	    if($value$plusargs("hash_seed=%h", hash_seed)) begin
+	    if($value$plusargs("hash_seed=%d", hash_seed)) begin
 				lfsr_seed = hash_seed;
+				random_number_w = hash_seed[WORD_SIZE-1:0];
+				prng_out = hash_seed[WORD_SIZE-1:0];
 			end else begin
 				lfsr_seed = '0;
 			end
 	 end
 `else
     assign lfsr_seed = '0;
-`endif	
+`endif
+//	logic randomize_reset_ff;
+//	rvdff #(1) rrff(.*, .clk(clk_i), .din(!rst_l&randomize_i), .dout(randomize_reset_ff));
    lfsr_prng #(WORD_SIZE) lfsr (.*, .clk(clk_i), .output_number_o(prng_out), .seed_i(lfsr_seed));
 	 
    rvdffs #(WORD_SIZE) hash_key (.*,.clk(clk_i), .din (prng_out), .dout(random_number_w), .en(randomize_i));
