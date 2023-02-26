@@ -65,7 +65,9 @@ module mem
    input  logic [33:0]               ic_debug_wr_data,   // Debug wr cache.
 `endif
 
-
+`ifdef RV_ICACHE_RANDOM_PLACEMENT
+		input logic [9:0]		real_tag,
+`endif
 
    input  logic [15:2]               ic_debug_addr,      // Read/Write addresss to the Icache.
    input  logic                      ic_debug_rd_en,     // Icache debug rd

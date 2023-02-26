@@ -166,7 +166,9 @@ module ifu_mem_ctl
 
    input  logic [155:0]              iccm_rd_data,       // Data read from ICCM.
 `endif
-
+`ifdef RV_ICACHE_RANDOM_PLACEMENT
+			output logic [9:0]		real_tag,
+`endif
 
    // IFU control signals
    output logic                      ic_hit_f2,              // Hit in Icache(if Icache access) or ICCM access( ICCM always has ic_hit_f2)
@@ -510,10 +512,11 @@ rvdffs #(4) ic_wren_copy (.*,
     // use the real address for that
     assign imb_hash_in[31:1]     = sel_hold_imb ? imb_hash_ff[31:1] : {fetch_addr_f1_hashed[31:1]} ;
     
-    
     // Hash the upper part of the PC
     logic [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] hashed_idx;
+    //logic [31:ICACHE_TAG_LOW] hashed_tag;
 		logic rst_ff;
+		logic[9:0] current_tag, imb_tag, imb_tag_ff;
 		always_ff @(posedge clk) rst_ff <= rst_l;
 		hash_cache_function_tag #(
         .WORD_SIZE (32-ICACHE_TAG_LOW)
@@ -526,10 +529,15 @@ rvdffs #(4) ic_wren_copy (.*,
         .line_index_o (hashed_idx)
     );
     // Replace only the index chunk in the hashed address
+		assign current_tag = {{(10-ICACHE_TAG_HIGH+ICACHE_TAG_LOW){1'b0}}, fetch_addr_f1[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW]};
     assign fetch_addr_f1_hashed[31:ICACHE_TAG_HIGH] = fetch_addr_f1[31:ICACHE_TAG_HIGH]; 
     assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = hashed_idx;
     assign fetch_addr_f1_hashed[ICACHE_TAG_LOW-1:1] = fetch_addr_f1[ICACHE_TAG_LOW-1:1]; 
 
+    assign imb_tag = sel_hold_imb ? imb_tag_ff : current_tag;
+    rvdffe #(10) imb_realtag_ff  (.*, .en(fetch_f1_f2_c1_clken), .din (imb_tag), .dout(imb_tag_ff));
+    assign real_tag = ({10{ sel_mb_addr}}  &  imb_tag_ff)  |
+                     ({10{~sel_mb_addr}}  &  current_tag)   ;
     // Fetch a seed for the LFSR
     logic[63:0] seed;
 `ifndef SYNTHESIS
@@ -613,6 +621,9 @@ rvdffs #(4) ic_wren_copy (.*,
 //    way_0    way_1  way_2     way_3      don't care)
 
 `ifndef RV_ICACHE_RANDOM_PLACEMENT
+`ifdef RV_ALWAYS_MISSING_CACHE
+	assign replace_way_mb_any = 4'b0001; 
+`else
    assign replace_way_mb_any[3] = ( way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[3]& tagv_mb_ff[2] &  tagv_mb_ff[1] &  tagv_mb_ff[0]) ;
    assign replace_way_mb_any[2] = (~way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
@@ -621,6 +632,7 @@ rvdffs #(4) ic_wren_copy (.*,
                                   (~tagv_mb_ff[1]& tagv_mb_ff[0] ) ;
    assign replace_way_mb_any[0] = (~way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[0] ) ;
+`endif
 `else
 	`ifndef RV_ICACHE_LOCKING
 		assign replace_way_mb_any = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : replace_way_mb_randomized;

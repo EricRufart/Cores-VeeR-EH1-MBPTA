@@ -116,7 +116,9 @@ module swerv
    output logic                      ic_debug_tag_array, // Debug tag array
    output logic [3:0]                ic_debug_way,       // Debug way. Rd or Wr.
 
-
+`ifdef RV_ICACHE_RANDOM_PLACEMENT
+			output logic [9:0] real_tag,
+`endif
 
    input  logic [3:0]            ic_rd_hit,
    input  logic                  ic_tag_perr,        // Icache Tag parity error

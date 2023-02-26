@@ -401,6 +401,10 @@ module swerv_wrapper
    logic [31:0] dmi_reg_rdata;
    logic        dmi_hard_reset;
 
+`ifdef RV_ICACHE_RANDOM_PLACEMENT
+	 logic[9:0] real_tag;
+`endif
+
 
    // Instantiate the swerv core
    swerv swerv (

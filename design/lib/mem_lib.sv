@@ -1023,3 +1023,134 @@ module ram_64x25
 
 
 endmodule // ram_64x25
+
+
+
+
+
+
+
+
+
+
+
+
+//=========================================================================================================================
+//=================================== START OF RPRR =======================================================================
+// I CACHERPRR
+module ram_1024x10
+  ( input logic CLK,
+
+    input logic [9:0] ADR,
+    input logic [9:0] D,
+
+    output logic [9:0] Q,
+    input logic WE );
+
+   // behavior to be replaced by actual SRAM in VLE
+
+   reg [9:0]   ram_core [1023:0];
+
+   always @(posedge CLK) begin
+      if (WE) begin// for active high WE - must be specified by user
+         ram_core[ADR] <= D; Q <= 'x; end else
+           Q <= ram_core[ADR];
+   end
+
+
+
+endmodule // ram_1024x20
+
+module ram_512x10
+  ( input logic CLK,
+    input logic [8:0] ADR,
+    input logic [9:0] D,
+
+    output logic [9:0] Q,
+    input logic WE );
+
+   // behavior to be replaced by actual SRAM in VLE
+
+   reg [9:0]   ram_core [511:0];
+
+   always @(posedge CLK) begin
+      if (WE) begin// for active high WE - must be specified by user
+         ram_core[ADR] <= D; Q <= 'x; end else
+           Q <= ram_core[ADR];
+   end
+
+
+
+
+endmodule // ram_512x20
+
+module ram_256x10
+  ( input logic CLK,
+    input logic [7:0] ADR,
+    input logic [9:0] D,
+
+    output logic [9:0] Q,
+    input logic WE );
+
+   // behavior to be replaced by actual SRAM in VLE
+
+   reg [9:0]   ram_core [255:0];
+
+   always @(posedge CLK) begin
+      if (WE) begin// for active high WE - must be specified by user
+         ram_core[ADR] <= D; Q <= 'x; end else
+           Q <= ram_core[ADR];
+   end
+
+
+
+endmodule // ram_256x20
+
+module ram_128x10
+  ( input logic CLK,
+    input logic [6:0] ADR,
+    input logic [9:0] D,
+
+    output logic [9:0] Q,
+    input logic WE );
+
+   // behavior to be replaced by actual SRAM in VLE
+
+   reg [9:0]   ram_core [127:0];
+
+   always @(posedge CLK) begin
+      if (WE) begin// for active high WE - must be specified by user
+         ram_core[ADR] <= D; Q <= 'x; end else
+           Q <= ram_core[ADR];
+   end
+
+
+
+
+endmodule // ram_128x20
+
+module ram_64x10
+  ( input logic CLK,
+    input logic [5:0] ADR,
+    input logic [9:0] D,
+
+    output logic [9:0] Q,
+    input logic WE );
+
+   // behavior to be replaced by actual SRAM in VLE
+
+   reg [9:0]   ram_core [63:0];
+
+   always @(posedge CLK) begin
+      if (WE) begin// for active high WE - must be specified by user
+         ram_core[ADR] <= D; Q <= 'x; end else
+           Q <= ram_core[ADR];
+   end
+
+
+
+
+endmodule // ram_64x20
+
+// LATEST ICACHE MEMORIES
+

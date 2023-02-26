@@ -174,6 +174,9 @@ module ifu
    input  logic [155:0]              iccm_rd_data,       // Data read from ICCM.
 `endif
 
+`ifdef RV_ICACHE_RANDOM_PLACEMENT
+			output logic [9:0]		real_tag,
+`endif
 // Perf counter sigs
    output logic       ifu_pmu_ic_miss, // ic miss
    output logic       ifu_pmu_ic_hit, // ic hit
