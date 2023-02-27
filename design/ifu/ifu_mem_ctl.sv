@@ -531,8 +531,12 @@ rvdffs #(4) ic_wren_copy (.*,
     // Replace only the index chunk in the hashed address
 		assign current_tag = {{(10-ICACHE_TAG_HIGH+ICACHE_TAG_LOW){1'b0}}, fetch_addr_f1[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW]};
     assign fetch_addr_f1_hashed[31:ICACHE_TAG_HIGH] = fetch_addr_f1[31:ICACHE_TAG_HIGH]; 
-    assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = hashed_idx;
-    assign fetch_addr_f1_hashed[ICACHE_TAG_LOW-1:1] = fetch_addr_f1[ICACHE_TAG_LOW-1:1]; 
+    `ifdef RV_ALWAYS_MISSING_CACHE
+				assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = '0;
+		`else
+				assign fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = hashed_idx;
+		`endif
+		assign fetch_addr_f1_hashed[ICACHE_TAG_LOW-1:1] = fetch_addr_f1[ICACHE_TAG_LOW-1:1]; 
 
     assign imb_tag = sel_hold_imb ? imb_tag_ff : current_tag;
     rvdffe #(10) imb_realtag_ff  (.*, .en(fetch_f1_f2_c1_clken), .din (imb_tag), .dout(imb_tag_ff));
@@ -621,9 +625,6 @@ rvdffs #(4) ic_wren_copy (.*,
 //    way_0    way_1  way_2     way_3      don't care)
 
 `ifndef RV_ICACHE_RANDOM_PLACEMENT
-`ifdef RV_ALWAYS_MISSING_CACHE
-	assign replace_way_mb_any = 4'b0001; 
-`else
    assign replace_way_mb_any[3] = ( way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[3]& tagv_mb_ff[2] &  tagv_mb_ff[1] &  tagv_mb_ff[0]) ;
    assign replace_way_mb_any[2] = (~way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
@@ -631,11 +632,14 @@ rvdffs #(4) ic_wren_copy (.*,
    assign replace_way_mb_any[1] = ( way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[1]& tagv_mb_ff[0] ) ;
    assign replace_way_mb_any[0] = (~way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
-                                  (~tagv_mb_ff[0] ) ;
-`endif
+                                 (~tagv_mb_ff[0] ) ;
 `else
 	`ifndef RV_ICACHE_LOCKING
-		assign replace_way_mb_any = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : replace_way_mb_randomized;
+			`ifdef RV_ALWAYS_MISSING_CACHE
+					assign replace_way_mb_any = 4'b0001; 
+			`else
+					assign replace_way_mb_any = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : replace_way_mb_randomized;
+			`endif
 	`endif
 `endif
 
