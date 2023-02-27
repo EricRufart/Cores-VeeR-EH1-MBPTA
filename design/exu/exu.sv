@@ -625,7 +625,9 @@ module exu
 	rvdff #(31) i0e2pcff (.*, .din(i0_pc_e1[31:1]), .dout(i0_pc_e2[31:1]));
 
 	assign exu_i0_flush_path_e4 = (fake_i0s) ?((dec_i0_pc_e3 > i0_alu_pc_nc) ? dec_i0_pc_e3 : (i0_pc_e2 > dec_i0_pc_e3 ? i0_pc_e2 : (i0_pc_e1 > dec_i0_pc_e3 ? i0_pc_e1 : (dec_i0_pc_d > dec_i0_pc_e3 ? dec_i0_pc_d : ifu_i0_pc)))) :  flush_path_aux_i0s;
-	assign exu_i1_flush_path_e4 = (fake_i1s) ? dec_i0_pc_e3 : flush_path_aux_i1s;
+
+	assign exu_i1_flush_path_e4 = (fake_i1s) ? (dec_i0_pc_e3 > i1_alu_pc_nc ? dec_i0_pc_e3 : (i0_pc_e2 > i1_alu_pc_nc ? i0_pc_e2 : (i0_pc_e1 > i1_alu_pc_nc ? i0_pc_e1 : dec_i0_pc_d > i1_alu_pc_nc ? dec_i0_pc_d : ifu_i0_pc)))  : flush_path_aux_i1s;
+	
 	assign exu_i0_flush_lower_e4 = flush_aux_i0s;
 	assign exu_i1_flush_lower_e4 = flush_aux_i1s;
 `else
