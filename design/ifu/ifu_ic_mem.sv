@@ -935,9 +935,10 @@ module random_modulo6 #(
    lfsr_prng #(32) lfsr (.*, .clk(clk_i), .output_number_o(prng_out), .seed_i(lfsr_seed));
    rvdffs #(32) key_reg (.*,.clk(clk_i), .din (prng_out), .dout(random_number_w), .en(randomize_i));
    logic c00,c01,c02,c03,c04,c05, c10, c11, c12, c13, c20,c21,c22,c23, c30, c31, c32, c33;
-	 logic[23:0] xor0;
+	 logic[23:0] xor0, addr_xor;
 	 logic[11:0] xored;
-	 assign xor0 = addr_i[23:0] ^ random_number_w[23:0];
+	 assign addr_xor = addr_i[25:2] ^ addr_i[23:0];
+	 assign xor0 = addr_xor ^ random_number_w[23:0];
 	 assign xored = xor0[23:12] ^xor0[11:0];
    pbox p00 (.a(addr_i[0]), .b(addr_i[1]), .drive(xored[0]), .c(c00), .d(c01));
    pbox p01 (.a(addr_i[2]), .b(addr_i[3]), .drive(xored[1]), .c(c02), .d(c03));

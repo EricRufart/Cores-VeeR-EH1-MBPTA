@@ -518,9 +518,9 @@ rvdffs #(4) ic_wren_copy (.*,
 		logic rst_ff;
 		logic[9:0] current_tag, imb_tag, imb_tag_ff;
 		always_ff @(posedge clk) rst_ff <= rst_l;
-	//	hash_cache_function_tag #(
-  //      .WORD_SIZE (32-ICACHE_TAG_LOW)
-  //  )
+//		hash_cache_function_tag #(
+//        .WORD_SIZE (ICACHE_TAG_HIGH-ICACHE_TAG_LOW)
+//    )
 		random_modulo6
     inst_hcf (
         .*,
