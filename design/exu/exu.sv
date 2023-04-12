@@ -125,7 +125,7 @@ module exu
    output logic        exu_i0_flush_final,                             // I0 flush to DEC
    output logic        exu_i1_flush_final,                             // I1 flush to DEC
 
-`ifdef RV_ALWAYS_MISSPRED
+`ifdef RV_ALWAYS_MISPRED
 	 input logic[31:1] ifu_i0_pc,
 `endif
 
@@ -406,7 +406,7 @@ module exu
   logic [31:1] flush_path_aux_i0, flush_path_aux_i1;
  	logic flush_aux_i0, flush_aux_i1;
 
-`ifdef RV_ALWAYS_MISSPRED
+`ifdef RV_ALWAYS_MISPRED
 	logic fake_i0, fake_i1;
 	assign exu_i0_flush_path_e1 = (fake_i0) ? (dec_i0_pc_d > exu_i0_pc_e1 ? dec_i0_pc_d : ifu_i0_pc) :  flush_path_aux_i0;
 	assign exu_i1_flush_path_e1 = (fake_i1) ? (dec_i0_pc_d > exu_i1_pc_e1 ? dec_i0_pc_d : ifu_i0_pc) :  flush_path_aux_i1;
@@ -419,6 +419,14 @@ module exu
 	assign exu_i1_flush_upper_e1 = flush_aux_i1;
 `endif
 
+
+logic [31:0] lost_cycles;
+logic wait_after_flush;
+
+rvdffs #(1) waf(.*, .clk(active_clk), .en(~freeze), .din((wait_after_flush & !dec_i0_alu_decode_d) | flush_aux_i0 | flush_aux_i1), .dout(wait_after_flush));
+rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_alu_decode_d), .din(lost_cycles + 1), .dout(lost_cycles));
+
+
    exu_alu_ctl i0_alu_e1 (.*,
                           .freeze        ( freeze                      ),   // I
                           .enable        ( i0_e1_ctl_en                ),   // I
@@ -428,8 +436,8 @@ module exu
                           .a             ( i0_rs1_final_d[31:0]        ),   // I
                           .b             ( i0_rs2_d[31:0]              ),   // I
                           .pc            ( dec_i0_pc_d[31:1]           ),   // I
-`ifdef RV_ALWAYS_MISSPRED
-    											.fake_misspred ( fake_i0										 ),
+`ifdef RV_ALWAYS_MISPRED
+    											.fake_mispred ( fake_i0										 ),
 `endif
                           .brimm         ( dec_i0_br_immed_d[12:1]     ),   // I
                           .ap            ( i0_ap_e1                    ),   // I
@@ -451,8 +459,8 @@ module exu
                           .a             ( i1_rs1_d[31:0]              ),   // I
                           .b             ( i1_rs2_d[31:0]              ),   // I
                           .pc            ( dec_i1_pc_d[31:1]           ),   // I
-`ifdef RV_ALWAYS_MISSPRED
-    											.fake_misspred ( fake_i1										 ),
+`ifdef RV_ALWAYS_MISPRED
+    											.fake_mispred ( fake_i1										 ),
 `endif 
 													.brimm         ( dec_i1_br_immed_d[12:1]     ),   // I
                           .ap            ( i1_ap_e1                    ),   // I
@@ -618,7 +626,7 @@ module exu
   logic [31:1] flush_path_aux_i0s, flush_path_aux_i1s;
  	logic flush_aux_i0s, flush_aux_i1s;
 
-`ifdef RV_ALWAYS_MISSPRED
+`ifdef RV_ALWAYS_MISPRED
 	logic fake_i0s, fake_i1s;
 	logic [31:1] i0_pc_e1, i0_pc_e2;
 	rvdff #(31) i0e1pcff (.*, .din(dec_i0_pc_d[31:1]), .dout(i0_pc_e1[31:1]));
@@ -648,8 +656,8 @@ module exu
                           .b             ( i0_rs2_e3_final[31:0]       ),   // I
                           .pc            ( dec_i0_pc_e3[31:1]          ),   // I
                           .brimm         ( i0_br_immed_e3[12:1]        ),   // I
-`ifdef RV_ALWAYS_MISSPRED
-    											.fake_misspred ( fake_i0s										 ),
+`ifdef RV_ALWAYS_MISPRED
+    											.fake_mispred ( fake_i0s										 ),
 `endif
                           .ap            ( i0_ap_e4                    ),   // I
                           .out           ( exu_i0_result_e4[31:0]      ),   // O
@@ -670,8 +678,8 @@ module exu
                           .a             ( i1_rs1_e3_final[31:0]       ),   // I
                           .b             ( i1_rs2_e3_final[31:0]       ),   // I
                           .pc            ( dec_i1_pc_e3[31:1]          ),   // I
-`ifdef RV_ALWAYS_MISSPRED
-    											.fake_misspred ( fake_i1s										 ),
+`ifdef RV_ALWAYS_MISPRED
+    											.fake_mispred ( fake_i1s										 ),
 `endif
                           .brimm         ( i1_br_immed_e3[12:1]        ),   // I
                           .ap            ( i1_ap_e4                    ),   // I

@@ -19,7 +19,7 @@
 #include <string>
 #include "Vtb_top.h"
 #include "verilated.h"
-#include "verilated_vcd_c.h"
+#include "verilated_fst_c.h"
 
 
 vluint64_t main_time = 0;
@@ -37,13 +37,13 @@ int main(int argc, char** argv) {
   Vtb_top* tb = new Vtb_top;
 
   // init trace dump
-  VerilatedVcdC* tfp = NULL;
+  VerilatedFstC* tfp = NULL;
 
 #if VM_TRACE
   Verilated::traceEverOn(true);
-  tfp = new VerilatedVcdC;
+  tfp = new VerilatedFstC;
   tb->trace (tfp, 24);
-  tfp->open ("sim.vcd");
+  tfp->open ("sim.fst");
 #endif
   // Simulate
   while(!Verilated::gotFinish()){

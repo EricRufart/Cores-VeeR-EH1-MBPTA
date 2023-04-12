@@ -29,8 +29,8 @@ module exu_alu_ctl
    input logic [31:0] a,                  // A operand
    input logic [31:0] b,                  // B operand
    input logic [31:1] pc,                 // for pc=pc+2,4 calculations
-	`ifdef RV_ALWAYS_MISSPRED
-		output logic fake_misspred,
+	`ifdef RV_ALWAYS_MISPRED
+		output logic fake_mispred,
 	`endif
 
    input logic valid,                     // Valid
@@ -107,6 +107,15 @@ module exu_alu_ctl
                            .dout(pp_ff)
                            );
 
+
+
+logic[31:0] predin, correct, mispred, conds_mispred, tkp, ntkp;
+rvdffs #(32) pi_ff (.*, .clk(active_clk), .din(predin + 1),   .dout(predin),  .en(valid_ff & (ap.predict_nt| ap.predict_t) & ~flush & ~freeze));
+rvdffs #(32) mp_ff (.*, .clk(active_clk), .din(mispred + 1), .dout(mispred),  .en(valid_ff & (ap.predict_nt | ap.predict_t) & flush_upper & ~flush & ~freeze));
+rvdffs #(32) cm_ff (.*, .clk(active_clk), .din(conds_mispred + 1), .dout(conds_mispred),  .en(valid_ff & (ap.predict_nt | ap.predict_t) & cond_mispredict & ~flush & ~freeze));
+rvdffs #(32) tkp_ff (.*, .clk(active_clk), .din(tkp + 1), .dout(tkp),  .en(valid_ff & ap.predict_t & ~flush & ~freeze));
+rvdffs #(32) ntkp_ff (.*, .clk(active_clk), .din(ntkp + 1), .dout(ntkp),  .en(valid_ff & ap.predict_nt & ~flush & ~freeze));
+rvdffs #(32) cr_ff (.*, .clk(active_clk), .din(correct + 1),  .dout(correct), .en(valid_ff & (ap.predict_nt | ap.predict_t) & ~flush_upper & ~flush & ~freeze));
 
    // immediates are just muxed into rs2
 
@@ -220,10 +229,10 @@ module exu_alu_ctl
    // pred_correct is for the npc logic
    // pred_correct indicates not to use the flush_path
    // for any_jal pred_correct==0
-`ifdef RV_ALWAYS_MISSPRED
+`ifdef RV_ALWAYS_MISPRED
    assign pred_correct = ((ap.predict_nt & ~actual_taken) |
                           (ap.predict_t  &  actual_taken)) &
-													~(ap.beq | ap.bne | ap.blt | ap.bge) & ~any_jal;
+													~(ap.beq | ap.bne | ap.blt | ap.bge) & ~any_jal & valid_ff; //added valid_ff for statistics
 	 
 	assign cond_mispredict = ((ap.predict_t & ~actual_taken) |
                             (ap.predict_nt & actual_taken)) | 
@@ -232,10 +241,10 @@ module exu_alu_ctl
 	 assign fake = (ap.predict_nt & ~actual_taken) | (ap.predict_t & actual_taken);
 	 // for any_jal adder output is the flush path
    assign flush_path[31:1] = (any_jal) ? aout[31:1] :/* (fake) ?  pc[31:1] :*/ pcout[31:1];
-	 assign fake_misspred=fake;
+	 assign fake_mispred=fake;
 `else
    assign pred_correct = ((ap.predict_nt & ~actual_taken) |
-                          (ap.predict_t  &  actual_taken)) & ~any_jal;
+                          (ap.predict_t  &  actual_taken)) & ~any_jal & valid_ff; //same
    
 	 // pcall and pret are included here
 	 assign cond_mispredict = (ap.predict_t & ~actual_taken) |
@@ -280,7 +289,7 @@ module exu_alu_ctl
    always_comb begin
       predict_p_ff = pp_ff;
 
-/*`ifdef RV_ALWAYS_MISSPRED
+/*`ifdef RV_ALWAYS_MISPRED
 			predict_p_ff.misp    = (valid_ff) ? (cond_mispredict | target_mispredict) : & ~flush : pp_ff.misp;
       predict_p_ff.ataken  = (valid_ff) ? (fake ? ~actual_taken : actual_taken) : pp_ff.ataken;
       predict_p_ff.hist[1] = (valid_ff) ? newhist[1] : pp_ff.hist[1];

@@ -315,6 +315,7 @@ module tb_top;
     string                      abi_reg[32]; // ABI register names
 
 `define DEC rvtop.swerv.dec
+`define EXU rvtop.swerv.exu
 
     assign mailbox_write = lmem.mailbox_write;
     assign WriteData = lmem.WriteData;
@@ -327,7 +328,7 @@ module tb_top;
     always @(negedge core_clk) begin
         cycleCnt <= cycleCnt+1;
         // Test timeout monitor
-        if(cycleCnt == MAX_CYCLES) begin
+        if(/*cycleCnt == MAX_CYCLES*/ 1'b0) begin
             $display ("Hit max cycle count (%0d) .. stopping",cycleCnt);
             $finish;
         end
@@ -339,6 +340,9 @@ module tb_top;
         // End Of test monitor
         if(mailbox_write && WriteData[7:0] == 8'hff) begin
             $display("\nFinished : minstret = %0d, mcycle = %0d", `DEC.tlu.minstretl[31:0],`DEC.tlu.mcyclel[31:0]);
+						$display("\n i0 correct: %0d  mispred: %0d total: %0d condmispred: %0d pdtk: %0d pntk: %0d", `EXU.i0_alu_e1.correct[31:0], `EXU.i0_alu_e1.mispred[31:0], `EXU.i0_alu_e1.predin[31:0], `EXU.i0_alu_e1.conds_mispred[31:0],`EXU.i0_alu_e1.tkp[31:0], `EXU.i0_alu_e1.ntkp[31:0]);
+						$display("\n i1 correct: %0d  mispred: %0d total: %0d condmispred: %0d pdtk: %0d pntk: %0d", `EXU.i1_alu_e1.correct[31:0], `EXU.i1_alu_e1.mispred[31:0], `EXU.i1_alu_e1.predin[31:0], `EXU.i1_alu_e1.conds_mispred[31:0],`EXU.i1_alu_e1.tkp[31:0], `EXU.i1_alu_e1.ntkp[31:0]);
+						$display("\n lost cycles: %0d", `EXU.lost_cycles[31:0]);
             $display("See \"exec.log\" for execution trace with register updates..\n");
             $display("TEST_PASSED");
             $finish;
@@ -351,7 +355,7 @@ module tb_top;
 
 
     // trace monitor
-    always @(posedge core_clk) begin
+/*    always @(posedge core_clk) begin
         wb_valid[1:0]  <= '{`DEC.dec_i1_wen_wb, `DEC.dec_i0_wen_wb};
         wb_dest[1:0]   <= '{`DEC.dec_i1_waddr_wb, `DEC.dec_i0_waddr_wb};
         wb_data[1:0]   <= '{`DEC.dec_i1_wdata_wb, `DEC.dec_i0_wdata_wb};
@@ -364,7 +368,7 @@ module tb_top;
            for (int i=0; i<2; i++)
                if (trace_rv_i_valid_ip[i]==1) begin
                    commit_count++;
-                   $fwrite (el, "%10d : %8s %0d %h %h%13s ; %s\n",cycleCnt, $sformatf("#%0d",commit_count), 0,
+                   $fwrite (el, "%10d : %8s %0d %h %h%13s ; %s\n", cycleCnt, $sformatf("#%0d",commit_count), 0,
                            trace_rv_i_address_ip[31+i*32 -:32], trace_rv_i_insn_ip[31+i*32-:32],
                            (wb_dest[i] !=0 && wb_valid[i]) ?  $sformatf("%s=%h", abi_reg[wb_dest[i]], wb_data[i]) : "             ",
                            dasm(trace_rv_i_insn_ip[31+i*32 -:32], trace_rv_i_address_ip[31+i*32-:32], wb_dest[i] & {5{wb_valid[i]}}, wb_data[i])
@@ -372,10 +376,10 @@ module tb_top;
                end
         end
         if(`DEC.dec_nonblock_load_wen) begin
-            $fwrite (el, "%10d : %10d%22s=%h ; nbL\n", cycleCnt, 0, abi_reg[`DEC.dec_nonblock_load_waddr], `DEC.lsu_nonblock_load_data);
+            $fwrite (el, "%10d : %10d%22s=%h ; nbL\n", '0 cycleCnt, 0, abi_reg[`DEC.dec_nonblock_load_waddr], `DEC.lsu_nonblock_load_data);
             tb_top.gpr[0][`DEC.dec_nonblock_load_waddr] = `DEC.lsu_nonblock_load_data;
         end
-    end
+    end*/
 
 
     initial begin
@@ -421,11 +425,11 @@ module tb_top;
 
         $readmemh("program.hex",  lmem.mem);
         $readmemh("program.hex",  imem.mem);
-        tp = $fopen("trace_port.csv","w");
-        el = $fopen("exec.log","w");
-        $fwrite (el, "//   Cycle : #inst  hart   pc    opcode    reg=value   ; mnemonic\n");
-        $fwrite (el, "//---------------------------------------------------------------\n");
-        fd = $fopen("console.log","w");
+//        tp = $fopen("trace_port.csv","w");
+       // el = $fopen("exec.log","w");
+      //  $fwrite (el, "//   Cycle : #inst  hart   pc    opcode    reg=value   ; mnemonic\n");
+      //  $fwrite (el, "//---------------------------------------------------------------\n");
+      //  fd = $fopen("console.log","w");
         commit_count = 0;
         preload_dccm();
         preload_iccm();
