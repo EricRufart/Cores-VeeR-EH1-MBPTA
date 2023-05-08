@@ -806,6 +806,9 @@ module swerv
    logic        exu_i1_br_ret_e4;
    logic        exu_i1_br_call_e4;
    logic        exu_i1_br_middle_e4;
+`ifdef RV_TRUE_NO_BRANCHPRED
+	 logic end_branch_stall;
+`endif
 
 `ifdef RV_BTB_48
    logic [1:0]       exu_i0_br_way_e4;
