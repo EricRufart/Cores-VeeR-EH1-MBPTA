@@ -128,6 +128,9 @@ module exu
 `ifdef RV_ALWAYS_MISPRED
 	 input logic[31:1] ifu_i0_pc,
 `endif
+`ifdef RV_TRUE_NO_BRANCHPRED
+				output logic end_branch_stall,
+`endif
 
    input mul_pkt_t  mul_p,                                             // DEC {valid, operand signs, low, operand bypass}
 
@@ -419,6 +422,15 @@ module exu
 	assign exu_i1_flush_upper_e1 = flush_aux_i1;
 `endif
 
+`ifdef RV_TRUE_NO_BRANCHPRED
+	logic end_branch_stall_i0, end_branch_stall_i1;
+	`ifndef RV_NO_SECONDARY_ALU
+		logic end_branch_stall_i0_e, end_branch_stall_i1_e;
+		assign end_branch_stall = end_branch_stall_i0 | end_branch_stall_i1 | end_branch_stall_i0_e | end_branch_stall_i1_e;
+	`else
+		assign end_branch_stall = end_branch_stall_i0 | end_branch_stall_i1;	
+	`endif
+`endif
 
 logic [31:0] lost_cycles;
 logic wait_after_flush;
@@ -437,9 +449,12 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
                           .b             ( i0_rs2_d[31:0]              ),   // I
                           .pc            ( dec_i0_pc_d[31:1]           ),   // I
 `ifdef RV_ALWAYS_MISPRED
-    											.fake_mispred ( fake_i0										 ),
+    											.fake_mispred  ( fake_i0										 ),
 `endif
-                          .brimm         ( dec_i0_br_immed_d[12:1]     ),   // I
+`ifdef RV_TRUE_NO_BRANCHPRED
+													.end_bp_stall  (end_branch_stall_i0          ),
+`endif
+													.brimm         ( dec_i0_br_immed_d[12:1]     ),   // I
                           .ap            ( i0_ap_e1                    ),   // I
                           .out           ( exu_i0_result_e1[31:0]      ),   // O
                           .flush_upper   ( flush_aux_i0       				 ),   // O : will be 0 if freeze this cycle
@@ -462,6 +477,9 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
 `ifdef RV_ALWAYS_MISPRED
     											.fake_mispred ( fake_i1										 ),
 `endif 
+`ifdef RV_TRUE_NO_BRANCHPRED
+													.end_bp_stall  (end_branch_stall_i1          ),
+`endif
 													.brimm         ( dec_i1_br_immed_d[12:1]     ),   // I
                           .ap            ( i1_ap_e1                    ),   // I
                           .out           ( exu_i1_result_e1[31:0]      ),   // O
@@ -659,6 +677,9 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
 `ifdef RV_ALWAYS_MISPRED
     											.fake_mispred ( fake_i0s										 ),
 `endif
+`ifdef RV_TRUE_NO_BRANCHPRED
+													.end_bp_stall  (end_branch_stall_i0_e        ),
+`endif
                           .ap            ( i0_ap_e4                    ),   // I
                           .out           ( exu_i0_result_e4[31:0]      ),   // O
                           .flush_upper   ( flush_aux_i0s       ),   // O
@@ -680,6 +701,9 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
                           .pc            ( dec_i1_pc_e3[31:1]          ),   // I
 `ifdef RV_ALWAYS_MISPRED
     											.fake_mispred ( fake_i1s										 ),
+`endif
+`ifdef RV_TRUE_NO_BRANCHPRED
+													.end_bp_stall  (end_branch_stall_i1_e        ),
 `endif
                           .brimm         ( i1_br_immed_e3[12:1]        ),   // I
                           .ap            ( i1_ap_e4                    ),   // I

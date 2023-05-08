@@ -55,7 +55,9 @@ module ifu_ifc_ctl
    input logic [31:0]  dec_tlu_mrac_ff ,   // side_effect and cacheable for each region
 
    output logic  ifc_fetch_uncacheable_f1, // fetch to uncacheable address as determined by MRAC
-
+`ifdef RV_TRUE_NO_BRANCHPRED
+  	input logic end_branch_stall,
+`endif
    output logic [31:1] ifc_fetch_addr_f1, // fetch addr F1
    output logic [31:1] ifc_fetch_addr_f2,  // fetch addr F2
 
@@ -231,13 +233,25 @@ module ifu_ifc_ctl
                                 ( (fb_full_f1 & ~(ifu_fb_consume2 | ifu_fb_consume1 | exu_flush_final | dec_takenbr)) |
                                   dma_stall));
    // BTB hit kills this fetch
+	 `ifdef RV_TRUE_NO_BRANCHPRED
+   	logic bp_stall;
+		rvdff #(1) bpstall (.*, .clk(active_clk), .din((bp_stall & ~exu_flush_final & ~end_branch_stall) | ifu_bp_kill_next_f2), .dout(bp_stall));	
+	  assign ifc_fetch_req_f1 = ( ifc_fetch_req_f1_raw &
+                               ~ifu_bp_kill_next_f2 &
+															 (~bp_stall | exu_flush_final | end_branch_stall) &
+                               ~(fb_full_f1 & ~(ifu_fb_consume2 | ifu_fb_consume1 | exu_flush_final)) &
+                               ~dma_stall &
+                               ~ic_write_stall &
+                               ~dec_tlu_flush_noredir_wb );
+	
+	 `else
    assign ifc_fetch_req_f1 = ( ifc_fetch_req_f1_raw &
                                ~ifu_bp_kill_next_f2 &
                                ~(fb_full_f1 & ~(ifu_fb_consume2 | ifu_fb_consume1 | exu_flush_final)) &
                                ~dma_stall &
                                ~ic_write_stall &
                                ~dec_tlu_flush_noredir_wb );
-
+	 `endif
    // kill F2 request if we flush or if the prior fetch missed the cache/mem
    assign fetch_req_f2_ns = ifc_fetch_req_f1 & ~miss_f2;
 
