@@ -29,6 +29,7 @@ module dec_ib_ctl
    input logic exu_flush_final,                // all flush sources: primary/secondary alu's, trap
 
    input logic dec_takenbr,
+   input logic dec_takenbr_nv_yet,
 
    input logic          dec_ib0_valid_eff_d,   // effective valid taking decode into account
    input logic          dec_ib1_valid_eff_d,
@@ -167,7 +168,9 @@ module dec_ib_ctl
                            ({4{shift1}} & {1'b0, ibvalid[3:1]}) |
                            ({4{shift2}} & {2'b0, ibvalid[3:2]})) & ~{4{flush_final}};
 
-   rvdff #(4) ibvalff (.*, .clk(active_clk), .din(ibval_in[3:0]), .dout(ibval[3:0]));
+	 logic pending_inst;
+   rvdff #(1) pendinginstff (.*, .clk(active_clk), .din(~exu_flush_final & (dec_takenbr_nv_yet | (pending_inst & ~dec_i0_decode_d))), .dout(pending_inst));	
+   rvdff #(4) ibvalff (.*, .clk(active_clk), .din(ibval_in[3:0] | {3'b000, pending_inst & ~dec_i0_decode_d & ~exu_flush_final}), .dout(ibval[3:0]));
 
 // only valid if there is room
    if (DEC_INSTBUF_DEPTH==4) begin

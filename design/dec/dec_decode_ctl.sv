@@ -279,6 +279,7 @@ module dec_decode_ctl
 
    // Static branch prediction
    output logic         dec_takenbr, // Taken branch in decode (Static branchpred)
+   output logic         dec_takenbr_nv_yet, // Taken branch in decode (Static branchpred)
    output logic [31:1]  dec_takenbr_path, // Taken branch path
 
    output logic         lock_cache,
@@ -715,11 +716,9 @@ module dec_decode_ctl
    assign i0_predict_nt = (~i0[31] & i0_dp.condbr) | i0_pret; // Let's assume RETs can't be predicted...
    assign i0_predict_t  = ( i0[31] & i0_dp.condbr) | i0_pcall | i0_pja;
 `else
-  `ifdef RV_TRUE_NO_BRANCHPRED
-   assign i0_predict_nt = (~i0[31] & i0_dp.condbr) | i0_pret; // Let's assume RETs can't be predicted...
-   assign i0_predict_t  = ( i0[31] & i0_dp.condbr) | i0_pcall | i0_pja;
-   //assign i0_predict_nt = i0_predict_br;
-   //assign i0_predict_t  = 1'b0;
+  `ifdef RV_NO_BRANCHPRED
+     assign i0_predict_nt = i0_predict_br;
+     assign i0_predict_t  = 1'b0;
 	`else
 	 // Dynamic branch prediction
    assign i0_predict_nt = ~(dec_i0_brp.hist[1] & i0_brp_valid) & i0_predict_br;
@@ -763,11 +762,9 @@ module dec_decode_ctl
    assign i1_predict_nt = (~i1[31] & i1_dp.condbr) | i1_pret; // Let's assume RETs can't be predicted...
    assign i1_predict_t  = ( i1[31] & i1_dp.condbr) | i1_pcall | i1_pja;
 `else
-  `ifdef RV_TRUE_NO_BRANCHPRED
-   assign i1_predict_nt = (~i1[31] & i1_dp.condbr) | i1_pret; // Let's assume RETs can't be predicted...
-   assign i1_predict_t  = ( i1[31] & i1_dp.condbr) | i1_pcall | i1_pja;
-//   assign i1_predict_nt = i1_predict_br;
-//   assign i1_predict_t  = 1'b0;
+  `ifdef RV_NO_BRANCHPRED
+     assign i1_predict_nt = i1_predict_br;
+     assign i1_predict_t  = 1'b0;
 	`else
    // Dynamic branch prediction
    assign i1_predict_nt = ~(dec_i1_brp.hist[1] & dec_i1_brp.valid) & i1_predict_br;
@@ -1402,7 +1399,8 @@ end : cam_array
                        dec_tlu_dual_issue_disable; // dual issue is disabled
 `ifdef RV_STATIC_BRANCHPRED
 	logic i1_non_dep_block;
-   assign i1_non_dep_block = leak1_i1_stall | (i0_jal) |
+  assign i1_non_dep_block = leak1_i1_stall | 
+					 						(i0_jal) |
 				              (((|dec_i0_trigger_match_d[3:0]) | ((i0_dp.condbr | i0_dp.jal) & i0_secondary_d)) & i1_dp.load ) |
                        i0_presync | i0_postsync |
                        i1_dp.presync | i1_dp.postsync |
@@ -1414,7 +1412,10 @@ end : cam_array
                        i1_dp.csr_read |
                        i1_dp.csr_write |  // optimized csr write with rd==0
                        i1_nonblock_load_stall |
-                       i1_store_stall_d |
+                       i1_store_stall_d |/*
+											 i1_load_block_d |    // load data not ready
+                       i1_mul_block_d |     // mul data not ready
+                       (i1_depend_i0_d & ~non_block_case_d & ~store_data_bypass_i0_e2_c2) |*/
                        i1_load2_block_d |  // back-to-back load's at decode
                        i1_mul2_block_d |
                        i1_load_stall_d |  // prior stores
@@ -2431,6 +2432,7 @@ end : cam_array
 
 		assign takenbr_path_en = (i0_predict_br|i1_predict_br) & ~freeze;
 
+//    assign dec_takenbr_n = ((i0_predict_t&dec_i0_decode_d) | (i1_predict_t & dec_i1_decode_d)) & ~pre_takenbr_ff;
     assign dec_takenbr_n = ((i0_predict_t&dec_i0_decode_d) | (i1_predict_t & i1_valid_with_dependency_blocked)) & ~pre_takenbr_ff;
 
     assign takenbr_pc    = i0_predict_t ? dec_i0_pc_d  : dec_i1_pc_d;
@@ -2452,10 +2454,11 @@ end : cam_array
 //   rvdffs #(31) taken_targetff (.*, .clk(active_clk), .en(takenbr_path_en), .din(takenbr_path_n),  .dout(dec_takenbr_path) );
 	 assign dec_takenbr_path = takenbr_path_n;
    rvdff  #(31) taken_pcff (.*, .clk(active_clk), .din(last_pc),  .dout(last_pc_ff) );
-`ifdef RV_TRUE_NO_BRANCHPRED
+`ifdef RV_NO_BRANCHPRED
 	 assign dec_takenbr = ((i0_predict_t | i0_predict_nt) & dec_i0_decode_d) | (i1_valid_with_dependency_blocked & (i1_predict_t | i1_predict_nt));
 `else
-   assign dec_takenbr = dec_takenbr_n & ~pre_takenbr_ff; //dec_takenbr_ff & ~flush_final_e3;
+   assign dec_takenbr = dec_takenbr_n & ~pre_takenbr_ff;
+   assign dec_takenbr_nv_yet = i1_predict_t & ~dec_i1_decode_d & ~i0_predict_t & i1_valid_with_dependency_blocked;
 `endif
    // Put here the marvelous loop detector:
    loop_detector #(

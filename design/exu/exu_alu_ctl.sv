@@ -32,7 +32,7 @@ module exu_alu_ctl
 	`ifdef RV_ALWAYS_MISPRED
 		output logic fake_mispred,
 	`endif
-	`ifdef RV_TRUE_NO_BRANCHPRED
+	`ifdef RV_NO_BRANCHPRED
 		output logic end_bp_stall,
 	`endif
 
@@ -247,7 +247,7 @@ rvdffs #(32) cr_ff (.*, .clk(active_clk), .din(correct + 1),  .dout(correct), .e
 	 assign fake_mispred=fake;
 `else
 
-	`ifdef RV_TRUE_NO_BRANCHPRED
+	`ifdef RV_NO_BRANCHPRED
 		assign end_bp_stall = pred_correct;
 	`endif
    assign pred_correct = ((ap.predict_nt & ~actual_taken) |

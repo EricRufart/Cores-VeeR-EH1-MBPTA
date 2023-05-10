@@ -1421,7 +1421,7 @@ module dec_tlu_ctl
    assign dec_tlu_sideeffect_posted_disable = mfdc[6];
    assign dec_tlu_non_blocking_disable = mfdc[5];
    assign dec_tlu_fast_div_disable = mfdc[4];
-`ifdef RV_NO_BRANCHPRED
+`ifdef RV_PRED_NEVER_TAKEN
  	assign dec_tlu_bpred_disable = 1'b1;
 `else
  	assign dec_tlu_bpred_disable = mfdc[3];

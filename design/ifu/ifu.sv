@@ -132,7 +132,7 @@ module ifu
    output logic [31:2]               ic_rw_addr,         // Read/Write addresss to the Icache.
    output logic [3:0]                ic_wr_en,           // Icache write enable, when filling the Icache.
    output logic                      ic_rd_en,           // Icache read  enable.
-`ifdef RV_TRUE_NO_BRANCHPRED
+`ifdef RV_NO_BRANCHPRED
 		input logic end_branch_stall,
 `endif
 `ifdef RV_ICACHE_ECC

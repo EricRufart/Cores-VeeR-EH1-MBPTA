@@ -903,7 +903,7 @@ end // block: LRU_rd_mux
     // No kills if dynamic branchpred is disabled
     assign ifu_bp_kill_next_f2 = dec_takenbr & ~exu_flush_final;
 `else
-	`ifdef RV_TRUE_NO_BRANCHPRED
+	`ifdef RV_NO_BRANCHPRED
   	 	assign ifu_bp_kill_next_f2 = |(bp_valid_f2[7:0] & bp_hist1_f2[7:0]) & ifc_fetch_req_f2 & ~leak_one_f2;
 	 `else
    		// a valid taken target needs to kill the next fetch as we compute the target address

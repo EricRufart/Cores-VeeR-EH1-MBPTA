@@ -576,6 +576,8 @@ module dec
    assign trace_rv_trace_pkt.trace_rv_i_interrupt_ip = {dec_tlu_int_valid_wb1,2'b0};
    assign trace_rv_trace_pkt.trace_rv_i_tval_ip =    dec_tlu_mtval_wb1[31:0];        // replicate across ports
 
+	 logic dec_takenbr_nv_yet;
+
    dec_ib_ctl instbuff (.*
                         );
 
