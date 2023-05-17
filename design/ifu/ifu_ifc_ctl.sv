@@ -238,6 +238,7 @@ module ifu_ifc_ctl
 		rvdff #(1) bpstall (.*, .clk(active_clk), .din((bp_stall & ~exu_flush_final & ~end_branch_stall) | ifu_bp_kill_next_f2), .dout(bp_stall));	
 	  assign ifc_fetch_req_f1 = ( ifc_fetch_req_f1_raw &
                                ~ifu_bp_kill_next_f2 &
+															 ~dec_takenbr &
 															 (~bp_stall | exu_flush_final | end_branch_stall) &
                                ~(fb_full_f1 & ~(ifu_fb_consume2 | ifu_fb_consume1 | exu_flush_final)) &
                                ~dma_stall &
@@ -261,11 +262,14 @@ module ifu_ifc_ctl
 
    rvdffe #(31) faddrf1_ff  (.*, .en(fetch_bf_en), .din(fetch_addr_bf[31:1]), .dout(ifc_fetch_addr_f1_raw[31:1]));
    rvdff #(31) faddrf2_ff (.*,  .clk(ifc_f2_clk), .din(ifc_fetch_addr_f1[31:1]), .dout(ifc_fetch_addr_f2[31:1]));
-
+`ifndef RV_NO_BRANCHPRED
    assign ifc_fetch_addr_f1[31:1] = ( ({31{exu_flush_final}} & exu_flush_path_final[31:1]) |
                                       ({31{~exu_flush_final&dec_takenbr}} & ifu_bp_btb_target_f2[31:1]) |
                                       ({31{~exu_flush_final&~dec_takenbr}} & ifc_fetch_addr_f1_raw[31:1]));
-
+`else
+   assign ifc_fetch_addr_f1[31:1] = ( ({31{exu_flush_final}} & exu_flush_path_final[31:1]) |
+                                      ({31{~exu_flush_final}} & ifc_fetch_addr_f1_raw[31:1]));
+`endif
    rvdff #(3) iccrit_ff (.*, .clk(active_clk), .din({ic_crit_wd_rdy_mod, fetch_crit_word,    fetch_crit_word_d1}),
                                               .dout({ic_crit_wd_rdy_d1,  fetch_crit_word_d1, fetch_crit_word_d2}));
 

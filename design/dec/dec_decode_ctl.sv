@@ -711,18 +711,18 @@ module dec_decode_ctl
    assign i0_predict_br =  i0_dp.condbr | i0_pcall | i0_pja | i0_pret;
    assign i1_predict_br =  i1_dp.condbr | i1_pcall | i1_pja | i1_pret;
 
-`ifdef RV_STATIC_BRANCHPRED
-   // Static branch prediction: Backward branches and jumps with imm are taken
-   assign i0_predict_nt = (~i0[31] & i0_dp.condbr) | i0_pret; // Let's assume RETs can't be predicted...
-   assign i0_predict_t  = ( i0[31] & i0_dp.condbr) | i0_pcall | i0_pja;
-`else
-  `ifdef RV_NO_BRANCHPRED
+`ifdef RV_NO_BRANCHPRED
      assign i0_predict_nt = i0_predict_br;
      assign i0_predict_t  = 1'b0;
+`else
+   `ifdef RV_STATIC_BRANCHPRED
+     // Static branch prediction: Backward branches and jumps with imm are taken
+     assign i0_predict_nt = (~i0[31] & i0_dp.condbr) | i0_pret; // Let's assume RETs can't be predicted...
+     assign i0_predict_t  = ( i0[31] & i0_dp.condbr) | i0_pcall | i0_pja;
 	`else
-	 // Dynamic branch prediction
-   assign i0_predict_nt = ~(dec_i0_brp.hist[1] & i0_brp_valid) & i0_predict_br;
-   assign i0_predict_t  =  (dec_i0_brp.hist[1] & i0_brp_valid) & i0_predict_br;
+	   // Dynamic branch prediction
+     assign i0_predict_nt = ~(dec_i0_brp.hist[1] & i0_brp_valid) & i0_predict_br;
+     assign i0_predict_t  =  (dec_i0_brp.hist[1] & i0_brp_valid) & i0_predict_br;
 	 `endif
 `endif
 
@@ -757,18 +757,18 @@ module dec_decode_ctl
    assign i0_ap.predict_nt = i0_predict_nt;
    assign i0_ap.predict_t  = i0_predict_t;
 
-`ifdef RV_STATIC_BRANCHPRED
-   // Static branch prediction: Backward branches are taken, forward are not
-   assign i1_predict_nt = (~i1[31] & i1_dp.condbr) | i1_pret; // Let's assume RETs can't be predicted...
-   assign i1_predict_t  = ( i1[31] & i1_dp.condbr) | i1_pcall | i1_pja;
+`ifdef RV_NO_BRANCHPRED
+   assign i1_predict_nt = i1_predict_br;
+   assign i1_predict_t  = 1'b0;
 `else
-  `ifdef RV_NO_BRANCHPRED
-     assign i1_predict_nt = i1_predict_br;
-     assign i1_predict_t  = 1'b0;
+   `ifdef RV_STATIC_BRANCHPRED
+     // Static branch prediction: Backward branches are taken, forward are not
+     assign i1_predict_nt = (~i1[31] & i1_dp.condbr) | i1_pret; // Let's assume RETs can't be predicted...
+     assign i1_predict_t  = ( i1[31] & i1_dp.condbr) | i1_pcall | i1_pja;
 	`else
-   // Dynamic branch prediction
-   assign i1_predict_nt = ~(dec_i1_brp.hist[1] & dec_i1_brp.valid) & i1_predict_br;
-   assign i1_predict_t  =  (dec_i1_brp.hist[1] & dec_i1_brp.valid) & i1_predict_br;
+     // Dynamic branch prediction
+     assign i1_predict_nt = ~(dec_i1_brp.hist[1] & dec_i1_brp.valid) & i1_predict_br;
+     assign i1_predict_t  =  (dec_i1_brp.hist[1] & dec_i1_brp.valid) & i1_predict_br;
 	 `endif
 `endif
 
@@ -2455,7 +2455,8 @@ end : cam_array
 	 assign dec_takenbr_path = takenbr_path_n;
    rvdff  #(31) taken_pcff (.*, .clk(active_clk), .din(last_pc),  .dout(last_pc_ff) );
 `ifdef RV_NO_BRANCHPRED
-	 assign dec_takenbr = ((i0_predict_t | i0_predict_nt) & dec_i0_decode_d) | (i1_valid_with_dependency_blocked & (i1_predict_t | i1_predict_nt));
+	 assign dec_takenbr = ((i0_predict_t | i0_predict_nt) & dec_i0_decode_d) | (i1_valid_with_dependency_blocked & (i1_predict_t | i1_predict_nt)) & ~pre_takenbr_ff;
+	 assign dec_takenbr_nv_yet = i1_valid_with_dependency_blocked & (i1_predict_t | i1_predict_nt) & ~dec_i1_decode_d & ~(i0_predict_t | i0_predict_nt);
 `else
    assign dec_takenbr = dec_takenbr_n & ~pre_takenbr_ff;
    assign dec_takenbr_nv_yet = i1_predict_t & ~dec_i1_decode_d & ~i0_predict_t & i1_valid_with_dependency_blocked;
