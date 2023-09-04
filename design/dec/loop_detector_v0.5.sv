@@ -14,7 +14,7 @@ module loop_detector #(
     input  logic [31:1] last_pc,
 
     output logic        lock_cache, 
-    output logic        lock_start   //AKA lock_release 
+    output logic        lock_start 
 );
     localparam PTR_SZ = $clog2(ENTRIES);
 
@@ -55,7 +55,7 @@ module loop_detector #(
     assign pop        = inst_valid & ~innermost_loop;
     // After a taken branch, we get a window with fluhed insn, keep the last lock state
     // until we get a valid PC
-    assign lock_cache = 1'b1; //push | ((/*inst_valid ? innermost_loop : */last_lock_ff) & ~empty & ~is_call);
+    assign lock_cache = push | ((/*inst_valid ? innermost_loop : */last_lock_ff) & ~empty & ~is_call);
     assign lock_start = push;
 
     // Conditional branches do not need the extra check, but JALs need it
@@ -72,8 +72,8 @@ module loop_detector #(
     // Stack flops
     for(genvar i = 0; i < ENTRIES; ++i) begin
         // Push/replace logic for each cell
-        logic is_push    = push  & ~pop  & (head_ff  == PTR_SZ'(i));
-        logic is_pushpop = push  &  pop  & (head_dec == PTR_SZ'(i));
+        logic is_push    = push & ~pop & (head_ff  == PTR_SZ'(i));
+        logic is_pushpop = push &  pop & (head_dec == PTR_SZ'(i));
 
         rvdffs  #($bits(loop_entry_t))  stackff (
             .clk  (active_clk),
