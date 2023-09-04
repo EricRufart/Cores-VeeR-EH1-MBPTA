@@ -1465,17 +1465,20 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
 
 
   for (j=0 ; j< 32; j++) begin : LOCKED 
-    rvdffs #(1) ic_way0_lock (.*,
-         .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit[0] | ic_wr_en[0]))),
-         .din((release_locks) ? 1'b0 : ic_to_lock),
+    rvdffsc #(1) ic_way0_lock (.*,
+				 .clear(release_locks),
+         .en(ic_to_lock & ((ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit[0] | ic_wr_en[0]))),
+         .din(1'b1),
          .dout(ic_tag_locked_out[0][32*i+j]));
-    rvdffs #(1) ic_way1_lock (.*,
-         .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit[1] | ic_wr_en[1]))),
-         .din((release_locks) ? 1'b0 : ic_to_lock),
+    rvdffsc #(1) ic_way1_lock (.*,
+				 .clear(release_locks),
+         .en(ic_to_lock & ((ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit[1] | ic_wr_en[1]))),
+         .din(1'b1),
          .dout(ic_tag_locked_out[1][32*i+j]));
-    rvdffs #(1) ic_way2_lock (.*,
-         .en(release_locks | ((/*ifu_ic_rw_int_addr_ff*/ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit [2] | ic_wr_en[2]))),
-         .din((release_locks) ? 1'b0 : ic_to_lock),
+    rvdffsc #(1) ic_way2_lock (.*,
+				 .clear(release_locks),
+         .en(ic_to_lock & ((ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit [2] | ic_wr_en[2]))),
+         .din(1'b1),
          .dout(ic_tag_locked_out[2][32*i+j]));
    end //LOCKED
 
