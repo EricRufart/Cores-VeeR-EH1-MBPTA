@@ -131,6 +131,18 @@ module exu
 `ifdef RV_NO_BRANCHPRED
 				output logic end_branch_stall,
 `endif
+`ifdef RV_NO_SPECULATIVE_CW
+	 output logic spec_end_i0_e1,
+	 output logic [31:1] spec_end_pc_i0_e1,
+	 output logic spec_end_i1_e1,
+	 output logic [31:1] spec_end_pc_i1_e1,
+	 output logic spec_end_i0_e4,
+	 output logic [31:1] spec_end_pc_i0_e4,
+	 output logic spec_end_i1_e4,
+	 output logic [31:1] spec_end_pc_i1_e4,
+	 output logic spec_exu,
+	 output logic [31:1] spec_exu_pc,
+`endif
 
    input mul_pkt_t  mul_p,                                             // DEC {valid, operand signs, low, operand bypass}
 
@@ -408,7 +420,25 @@ module exu
 
   logic [31:1] flush_path_aux_i0, flush_path_aux_i1;
  	logic flush_aux_i0, flush_aux_i1;
+	 logic br_dc_i0_e1, br_dc_i1_e1, br_dc_i0_e4, br_dc_i1_e4;
 
+`ifdef RV_NO_SPECULATIVE_CW
+/*	 assign spec_end = br_dc_i0_e1 | br_dc_i0_e4 | br_dc_i1_e1 | br_dc_i1_e4;
+	 assign spec_end_i0_e1 = br_dc_
+	 logic[31:1] spec_pc_aux;
+	 rvdff #(31) specpcff(.*, .din(exu_i0_flush_lower_e4 ? i0_alu_pc_nc : (exu_i1_flush_lower_e4 ? i1_alu_pc_nc : (exu_i0_flush_upper_e1 ? exu_i0_pc_e1 : exu_i1_pc_e1))), .dout(spec_pc_aux));
+	 assign spec_end_pc = exu_flush_final ? spec_pc_aux : (br_dc_i0_e4 ? i0_alu_pc_nc : (br_dc_i1_e4 ? i1_alu_pc_nc : (br_dc_i0_e1 ? exu_i0_pc_e1 : exu_i1_pc_e1)));*/
+	 assign spec_end_i0_e1 = br_dc_i0_e1 | exu_i0_flush_upper_e1;
+	 assign spec_end_i1_e1 = br_dc_i1_e1 | exu_i1_flush_upper_e1;
+	 assign spec_end_i0_e4 = br_dc_i0_e4 | exu_i0_flush_lower_e4;
+	 assign spec_end_i1_e4 = br_dc_i1_e4 | exu_i1_flush_lower_e4;
+	 assign spec_end_pc_i0_e1 = exu_i0_pc_e1; 
+	 assign spec_end_pc_i1_e1 = exu_i1_pc_e1;
+	 assign spec_end_pc_i0_e4 = i0_alu_pc_nc;
+	 assign spec_end_pc_i1_e4 = i1_alu_pc_nc;
+	 assign spec_exu = exu_i0_flush_upper_e1 | exu_i1_flush_upper_e1 | exu_i0_flush_lower_e4 | exu_i1_flush_lower_e4;
+	 assign spec_exu_pc = exu_i0_flush_lower_e4 ? i0_alu_pc_nc : (exu_i1_flush_lower_e4 ? i1_alu_pc_nc : (exu_i0_flush_upper_e1 ? exu_i0_pc_e1 : exu_i1_pc_e1));
+`endif
 `ifdef RV_ALWAYS_MISPRED
 	logic fake_i0, fake_i1;
 	assign exu_i0_flush_path_e1 = (fake_i0) ? (dec_i0_pc_d > exu_i0_pc_e1 ? dec_i0_pc_d : ifu_i0_pc) :  flush_path_aux_i0;
@@ -454,6 +484,9 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
 `ifdef RV_NO_BRANCHPRED
 													.end_bp_stall  (end_branch_stall_i0          ),
 `endif
+`ifdef RV_NO_SPECULATIVE_CW
+    											.br_decided		( br_dc_i0_e1										 ),
+`endif 
 													.brimm         ( dec_i0_br_immed_d[12:1]     ),   // I
                           .ap            ( i0_ap_e1                    ),   // I
                           .out           ( exu_i0_result_e1[31:0]      ),   // O
@@ -476,6 +509,9 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
                           .pc            ( dec_i1_pc_d[31:1]           ),   // I
 `ifdef RV_ALWAYS_MISPRED
     											.fake_mispred ( fake_i1										 ),
+`endif 
+`ifdef RV_NO_SPECULATIVE_CW
+    											.br_decided		( br_dc_i1_e1										 ),
 `endif 
 `ifdef RV_NO_BRANCHPRED
 													.end_bp_stall  (end_branch_stall_i1          ),
@@ -639,6 +675,10 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
    assign exu_i1_flush_path_e4[31:1] = '0;
    assign i1_alu_pc_nc[31:1]         = '0;
    assign i1_pred_correct_lower_e4   = '0;
+`ifdef RV_NO_SPECULATIVE_CW
+   assign br_dc_i0_e4 = '0;
+   assign br_dc_i1_e4 = '0;
+`endif 
 
 `else
   logic [31:1] flush_path_aux_i0s, flush_path_aux_i1s;
@@ -680,6 +720,9 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
 `ifdef RV_NO_BRANCHPRED
 													.end_bp_stall  (end_branch_stall_i0_e        ),
 `endif
+`ifdef RV_NO_SPECULATIVE_CW
+    											.br_decided		( br_dc_i0_e4										 ),
+`endif 
                           .ap            ( i0_ap_e4                    ),   // I
                           .out           ( exu_i0_result_e4[31:0]      ),   // O
                           .flush_upper   ( flush_aux_i0s       ),   // O
@@ -705,6 +748,9 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
 `ifdef RV_NO_BRANCHPRED
 													.end_bp_stall  (end_branch_stall_i1_e        ),
 `endif
+`ifdef RV_NO_SPECULATIVE_CW
+    											.br_decided		( br_dc_i1_e4										 ),
+`endif 
                           .brimm         ( i1_br_immed_e3[12:1]        ),   // I
                           .ap            ( i1_ap_e4                    ),   // I
                           .out           ( exu_i1_result_e4[31:0]      ),   // O

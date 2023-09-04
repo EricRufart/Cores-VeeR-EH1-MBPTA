@@ -38,6 +38,9 @@ module ifu_aln_ctl
    input logic [7:0]  ifu_bp_hist0_f2,    // history counters for all 4 potential branches, bit 1, right justified
    input logic [7:0]  ifu_bp_hist1_f2,    // history counters for all 4 potential branches, bit 1, right justified
    input logic [7:0]  ifu_bp_pc4_f2,      // pc4 indication, right justified
+`ifdef RV_NO_SPECULATIVE_CW
+	 input logic underspec,
+`endif
 `ifdef RV_BTB_48
    input logic [7:0][1:0]  ifu_bp_way_f2, // way indication, right justified
 `else

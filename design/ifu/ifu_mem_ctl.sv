@@ -31,7 +31,25 @@ module ifu_mem_ctl
    input logic                       exu_flush_final,               // Flush from the pipeline.
    input logic                       dec_takenbr,                   // Taken branch in decode (Static branchpred)
    input logic                       dec_tlu_flush_err_wb,          // Flush from the pipeline due to perr.
-
+`ifdef RV_NO_SPECULATIVE_CW
+	 input logic speculation_i0,
+	 input logic [31:1]	speculation_pc_i0,
+	 input logic speculation_i1,
+	 input logic [31:1]	speculation_pc_i1,
+	 input logic spec_end_i0_e1,
+	 input logic [31:1] spec_end_pc_i0_e1,
+	 input logic spec_end_i1_e1,
+	 input logic [31:1] spec_end_pc_i1_e1,
+	 input logic spec_end_i0_e4,
+	 input logic [31:1] spec_end_pc_i0_e4,
+	 input logic spec_end_i1_e4,
+	 input logic [31:1] spec_end_pc_i1_e4,
+	 input logic spec_exu, //FLUSH
+	 input logic [31:1] spec_exu_pc,
+	 input logic ifu_i0_valid,
+	 input logic ifu_i1_valid,
+	 output logic underspec,
+`endif
    input logic [31:1]                fetch_addr_f1,                 // Fetch Address byte aligned always.      F1 stage.
    input logic                       ifc_fetch_uncacheable_f1,      // The fetch request is uncacheable space. F1 stage
    input logic                       ifc_fetch_req_f1,              // Fetch request. Comes with the address.  F1 stage
@@ -346,6 +364,39 @@ module ifu_mem_ctl
    logic         debug_data_clken;
    logic                   ifc_region_acc_fault_final_f1, ifc_region_acc_fault_memory, ifc_region_acc_okay;
 
+`ifdef RV_NO_SPECULATIVE_CW
+	logic spec00, spec01, spec02, spec03, spec10, spec11, spec12, spec13;
+	logic[31:1] spec00_pc, spec01_pc, spec02_pc, spec03_pc, spec10_pc, spec11_pc, spec12_pc, spec13_pc;
+
+	rvdff #(1) spec00ff    (.*, .clk(active_clk), .din(speculation_i0 & !spec_exu), .dout(spec00));
+	rvdff #(1) spec10ff    (.*, .clk(active_clk), .din(speculation_i1 & !spec_exu), .dout(spec10));
+	rvdff #(31) spec00pcff (.*, .clk(active_clk), .din(speculation_pc_i0), .dout(spec00_pc));
+	rvdff #(31) spec10pcff (.*, .clk(active_clk), .din(speculation_pc_i1), .dout(spec10_pc));
+	rvdff #(1) spec01ff    (.*, .clk(active_clk), .din(spec00 & !(speculation_i0 & (spec00_pc == speculation_pc_i0)) & !specm00 & !spec_exu), .dout(spec01));
+	rvdff #(1) spec11ff    (.*, .clk(active_clk), .din(spec10 & !((speculation_i1 & (spec10_pc == speculation_pc_i1)) | (speculation_i0 & (spec10_pc == speculation_pc_i0))) & !specm10 & !spec_exu), .dout(spec11));
+	rvdff #(31) spec01pcff (.*, .clk(active_clk), .din(spec00_pc), .dout(spec01_pc));
+	rvdff #(31) spec11pcff (.*, .clk(active_clk), .din(spec10_pc), .dout(spec11_pc));
+	rvdff #(1) spec02ff    (.*, .clk(active_clk), .din(spec01 & !spec_exu), .dout(spec02));
+	rvdff #(1) spec12ff    (.*, .clk(active_clk), .din(spec11 & !spec_exu), .dout(spec12));
+	rvdff #(31) spec02pcff (.*, .clk(active_clk), .din(spec01_pc), .dout(spec02_pc));
+	rvdff #(31) spec12pcff (.*, .clk(active_clk), .din(spec11_pc), .dout(spec12_pc));
+	rvdff #(1) spec03ff    (.*, .clk(active_clk), .din(spec02 & !spec_exu), .dout(spec03));
+	rvdff #(1) spec13ff    (.*, .clk(active_clk), .din(spec12 & !spec_exu), .dout(spec13));
+	rvdff #(31) spec03pcff (.*, .clk(active_clk), .din(spec02_pc), .dout(spec03_pc));
+	rvdff #(31) spec13pcff (.*, .clk(active_clk), .din(spec12_pc), .dout(spec13_pc));
+
+	logic specmatch, specm00, specm10, specm03, specm13;
+	assign specm00 = !spec00 | ((spec00_pc == spec_end_pc_i0_e1) & spec_end_i0_e1);
+	assign specm10 = !spec10 | ((spec10_pc == spec_end_pc_i1_e1) & spec_end_i1_e1);
+	assign specm03 = !spec03 | ((spec03_pc == spec_end_pc_i0_e4) & spec_end_i0_e4);
+	assign specm13 = !spec13 | ((spec13_pc == spec_end_pc_i1_e4) & spec_end_i1_e4);
+	assign specmatch = specm00 & specm10 & specm03 & specm13;
+//	rvdff #(1) underspecff  (.*, .clk(active_clk), .din((speculation_i0 | speculation_i1 | (underspec & !specmatch)) & !spec_exu), .dout(underspec));
+ 	assign underspec = (speculation_i0 | speculation_i1 | !specmatch | spec01 | spec02 | spec11 | spec12) & !spec_exu;
+
+
+
+`endif
   logic [3:0] wr_en_stalled;	
   logic [3:0] replace_way_mb_randomized;
 `ifdef RV_ICACHE_LOCKING
@@ -383,8 +434,7 @@ module ifu_mem_ctl
    assign ifu_axi_wlast                          = '1;
    // AXI Write Response Channel
    assign ifu_axi_bready                         = '1;
-
-
+ 
 // ---- Clock gating section -----
 // c1 clock enables
 
@@ -437,7 +487,11 @@ module ifu_mem_ctl
       case (miss_state)
          IDLE: begin : idle
                   miss_nxtstate = (ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
-                  miss_state_en = ic_act_miss_f2;
+									`ifdef RV_NO_SPECULATIVE_CW 
+													miss_state_en = ic_act_miss_f2 & ! underspec & !spec_exu;
+									`else 
+													miss_state_en = ic_act_miss_f2; 
+									`endif
          end
          CRIT_BYP_OK: begin : crit_byp_ok
                   miss_nxtstate = ( ic_byp_hit_f2 &  ~exu_flush_final & ~dec_takenbr & ~(ifu_wr_en_new & last_beat) & ~uncacheable_miss_ff) ? MISS_WAIT :
@@ -490,10 +544,11 @@ module ifu_mem_ctl
    assign fetch_req_icache_f2   = ifc_fetch_req_f2 & ~ifc_iccm_access_f2 & ~ifc_region_acc_fault_f2;
    assign fetch_req_iccm_f2     = ifc_fetch_req_f2 &  ifc_iccm_access_f2;
 
+
    assign ic_iccm_hit_f2        = fetch_req_iccm_f2  &  (~miss_pending | (miss_state==HIT_U_MISS));
    assign ic_byp_hit_f2         = ic_crit_wd_rdy  & fetch_req_icache_f2 &  miss_pending ;
    assign ic_act_hit_f2         = (|ic_rd_hit[3:0]) & fetch_req_icache_f2 & ~reset_all_tags & (~miss_pending | (miss_state==HIT_U_MISS)) & ~sel_mb_addr_ff;
-   assign ic_act_miss_f2        = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & ~miss_pending & ~ifc_region_acc_fault_f2;
+	 assign ic_act_miss_f2        = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & ~miss_pending & ~ifc_region_acc_fault_f2;
    assign ic_miss_under_miss_f2 = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & (miss_state == HIT_U_MISS) ;
    assign ic_hit_f2             =  ic_act_hit_f2 | ic_byp_hit_f2 | ic_iccm_hit_f2 | (ifc_region_acc_fault_f2 & ifc_fetch_req_f2 & ~((miss_state == CRIT_BYP_OK) | (miss_state == SCND_MISS)));
 
@@ -1127,10 +1182,10 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
 // `endif
 //   assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 & ~axi_cmd_rsp_pend;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 ;
+	 assign    ifu_axi_arvalid                 = `ifdef RV_NO_SPECULATIVE_CW (underspec) ? 1'b0 : `endif ifc_axi_ic_req_ff2 ;
    assign    ifu_axi_arid[IFU_BUS_TAG-1:0]   = IFU_BUS_TAG'(axi_rd_addr_count[2:0]);
-   assign    ifu_axi_araddr[31:0]            = {ifu_ic_req_addr_f2[31:3],3'b0} ;
-   assign    ifu_axi_rready                  = 1'b1;
+   assign    ifu_axi_araddr[31:0]            = {ifu_ic_req_addr_f2[31:3],3'b0};
+	 assign    ifu_axi_rready                  = 1'b1;
    assign    ifu_axi_arsize[2:0]             = 3'b011;
    assign    ifu_axi_arcache[3:0]            = 4'b1111;
    assign    ifu_axi_arprot[2:0]             = 3'b100;
@@ -1203,7 +1258,7 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
    assign axi_w1_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0010) & miss_pending ;
    assign axi_w2_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b0100) & miss_pending ;
    assign axi_w3_wren = axi_ifu_wr_en_new_q & (replace_way_mb_any[3:0] == 4'b1000) & miss_pending ;
-
+	
    assign axi_ic_wr_en[3:0] = {axi_w3_wren, axi_w2_wren, axi_w1_wren, axi_w0_wren} ;
 
    assign axi_w0_wren_last = axi_ifu_wr_en_new_wo_err & (replace_way_mb_any[3:0] == 4'b0001) & miss_pending & axi_last_data_beat;
@@ -1291,7 +1346,17 @@ assign ifu_tag_wren[3] = axi_w3_wren_last | w3_wren_reset_miss;
 assign ifu_wr_en_new   = axi_ifu_wr_en_new;
 assign ifu_wr_en_new_q = axi_ifu_wr_en_new_q;
 assign ifu_wr_data_new[63:0]=  axi_ifu_wr_data_new[63:0];
-assign ic_wr_en[3:0]   =  axi_ic_wr_en[3:0];
+`ifdef RV_NO_SPECULATIVE_CW
+	logic ignorenextmemread;
+	logic currentlyreadingff;
+
+	rvdff #(1) currentreadff (.*, .clk(active_clk), .din(axi_ic_wr_en[3:0] != '0), .dout(currentlyreadingff));
+	//rvdff #(1) ignorenextff (.*, .clk(active_clk), .din((spec_exu & (ifc_axi_ic_req_ff2 | ifc_axi_ic_req_ff_in | ifc_fetch_req_f1)) | (ignorenextmemread & !((axi_ic_wr_en[3:0] == '0) & currentlyreadingff))), .dout(ignorenextmemread));
+	rvdff #(1) ignorenextff (.*, .clk(active_clk), .din((spec_exu & (ifc_axi_ic_req_ff2 | ifc_axi_ic_req_ff_in | ifc_fetch_req_f1)) | (ignorenextmemread & !ic_act_miss_f2)), .dout(ignorenextmemread));
+	assign ic_wr_en[3:0] = /*ignorenextmemread ? 4'b0000 :*/ axi_ic_wr_en[3:0];
+`else
+	assign ic_wr_en[3:0]   =  axi_ic_wr_en[3:0];
+`endif
 assign ic_write_stall  = ifu_wr_en_new &  ~(((miss_state== CRIT_BYP_OK) & ~(ifu_wr_en_new & last_beat)));
 
    rvdff #(1) reset_all_tag_ff (.*, .clk(active_clk),  .din(dec_tlu_fence_i_wb), .dout(reset_all_tags));

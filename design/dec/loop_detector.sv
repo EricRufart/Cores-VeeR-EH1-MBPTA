@@ -52,10 +52,10 @@ module loop_detector #(
     assign empty    = head_ff == tail_ff;
     
     //
-    assign pop        = inst_valid & ~empty & ~innermost_loop;
+    assign pop        = inst_valid & ~innermost_loop;
     // After a taken branch, we get a window with fluhed insn, keep the last lock state
     // until we get a valid PC
-    assign lock_cache = push | ((inst_valid ? innermost_loop : last_lock_ff) & ~empty & ~is_call);
+    assign lock_cache = push | ((/*inst_valid ? innermost_loop : */last_lock_ff) & ~empty & ~is_call);
     assign lock_start = push;
 
     // Conditional branches do not need the extra check, but JALs need it

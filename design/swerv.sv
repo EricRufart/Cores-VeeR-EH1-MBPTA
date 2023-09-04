@@ -646,7 +646,22 @@ module swerv
 
    logic         dec_takenbr; // Taken branch in decode (Static branchpred)
    logic [31:1]  dec_takenbr_path; // Taken branch path
-
+`ifdef RV_NO_SPECULATIVE_CW
+	 logic speculation_i0;
+	 logic[31:1] speculation_pc_i0;
+	 logic speculation_i1;
+	 logic[31:1] speculation_pc_i1;
+	 logic spec_end_i0_e1;
+	 logic [31:1] spec_end_pc_i0_e1;
+	 logic spec_end_i1_e1;
+	 logic [31:1] spec_end_pc_i1_e1;
+	 logic spec_end_i0_e4;
+	 logic [31:1] spec_end_pc_i0_e4;
+	 logic spec_end_i1_e4;
+	 logic [31:1] spec_end_pc_i1_e4;
+	 logic spec_exu;
+	 logic [31:1] spec_exu_pc;
+`endif 	
    logic         lock_cache;
    logic         lock_start;
 
@@ -666,6 +681,7 @@ module swerv
    logic        exu_i1_flush_final;
 
    logic        exu_flush_final;    // flush upper; either i0 or i1
+
    logic        exu_flush_upper_e2;    // flush upper, either i0 or i1
 
    logic [31:1] exu_flush_path_final;

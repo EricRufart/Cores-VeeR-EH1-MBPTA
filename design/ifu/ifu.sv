@@ -56,6 +56,23 @@ module ifu
    input logic dec_takenbr, // Taken branch in decode (Static branchpred)
    input logic [31:1] dec_takenbr_path, // Taken branch path
 
+`ifdef RV_NO_SPECULATIVE_CW
+	 input logic speculation_i0,
+	 input logic [31:1]	speculation_pc_i0,
+	 input logic speculation_i1,
+	 input logic [31:1]	speculation_pc_i1,
+	 input logic spec_end_i0_e1,
+	 input logic [31:1] spec_end_pc_i0_e1,
+	 input logic spec_end_i1_e1,
+	 input logic [31:1] spec_end_pc_i1_e1,
+	 input logic spec_end_i0_e4,
+	 input logic [31:1] spec_end_pc_i0_e4,
+	 input logic spec_end_i1_e4,
+	 input logic [31:1] spec_end_pc_i1_e4,
+	 input logic spec_exu,
+	 input logic [31:1] spec_exu_pc,
+`endif
+
 	 input logic lock_cache,
    input logic lock_start,
 
@@ -301,6 +318,7 @@ module ifu
    logic [16:2]  ifu_icache_error_index;       //  Index with parity error
    logic         ifu_icache_error_val;   //  Parity error
    logic         ifu_icache_sb_error_val;
+	 logic underspec;
 
    assign ifu_fetch_data[127:0] = ic_data_f2[127:0];
    assign ifu_fetch_val[7:0] = ic_fetch_val_f2[7:0];
@@ -308,7 +326,7 @@ module ifu
 
 
    // fetch control
-   ifu_ifc_ctl ifc (.*
+	 ifu_ifc_ctl ifc (.* `ifdef RV_NO_SPECULATIVE_CW , .allow_cont_fetch( (ifu_i0_pc[5:1] == '0 | ifu_i1_pc[5:1] == '0) & !underspec) `endif
                     );
 
    // aligner

@@ -285,6 +285,14 @@ module dec_decode_ctl
    output logic         lock_cache,
    output logic         lock_start,
 
+`ifdef RV_NO_SPECULATIVE_CW
+	 output logic 			  speculation_i0,
+	 output logic [31:1]	speculation_pc_i0,
+	 output logic 			  speculation_i1,
+	 output logic [31:1]	speculation_pc_i1,
+`endif
+
+
    input  logic        scan_mode
    );
 
@@ -706,6 +714,12 @@ module dec_decode_ctl
    assign dec_i0_select_pc_d = i0_dp.pc;
    assign dec_i1_select_pc_d = i1_dp.pc;
 
+`ifdef RV_NO_SPECULATIVE_CW
+	 assign speculation_i0 = i0_predict_br & i0_valid_d;
+	 assign speculation_pc_i0 = dec_i0_pc_d;
+	 assign speculation_i1 = i1_predict_br & i1_valid_d;
+	 assign speculation_pc_i1 = dec_i1_pc_d;
+`endif
    // branches that can be predicted
 
    assign i0_predict_br =  i0_dp.condbr | i0_pcall | i0_pja | i0_pret;
@@ -1465,7 +1479,7 @@ end : cam_array
 `ifdef RV_ALWAYS_MISPRED
 	 assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze & ~(i0_ap.predict_nt & (dec_i1_pc_d > dec_i0_pc_d)); 
 `else
-	 assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze & ~i0_predict_t;
+				assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze & ~i0_predict_t;
 `endif
 
    assign dec_ib0_valid_eff_d = i0_valid_d & ~dec_i0_decode_d;
@@ -2421,7 +2435,6 @@ end : cam_array
                      .dout(pred_correct_npc_e2[31:1])
                      );
 
-
 `ifdef RV_STATIC_BRANCHPRED
     logic [31:1] takenbr_pc, takenbr_path_n, last_pc, last_pc_ff;
     logic [12:1] takenbr_immed;
@@ -2436,7 +2449,7 @@ end : cam_array
     assign dec_takenbr_n = ((i0_predict_t&dec_i0_decode_d) | (i1_predict_t & i1_valid_with_dependency_blocked)) & ~pre_takenbr_ff;
 
     assign takenbr_pc    = i0_predict_t ? dec_i0_pc_d  : dec_i1_pc_d;
-    assign last_pc       = dec_i1_decode_d & ~i0_predict_t ? dec_i1_pc_d  : dec_i0_pc_d;
+    assign last_pc       = (dec_i1_decode_d & ~i0_predict_t) ? dec_i1_pc_d  : dec_i0_pc_d;
     assign takenbr_immed = i0_predict_t ? i0_br_offset : i1_br_offset;
 
     assign taken_is_call = i0_predict_t ? i0_pcall & dec_i0_decode_d : i1_pcall & dec_i1_decode_d;
@@ -2465,7 +2478,7 @@ end : cam_array
    loop_detector #(
     .ENTRIES(4)
    ) loopdec (
-     .inst_valid         (i0_legal_decode_d ),
+     .inst_valid         (dec_i0_decode_d ),
      .is_call            (was_call_ff       ),
      .dec_takenbr        (dec_takenbr_ff    ),
      .dec_takenbr_target (dec_takenbr_path  ),
