@@ -31,25 +31,6 @@ module ifu_mem_ctl
    input logic                       exu_flush_final,               // Flush from the pipeline.
    input logic                       dec_takenbr,                   // Taken branch in decode (Static branchpred)
    input logic                       dec_tlu_flush_err_wb,          // Flush from the pipeline due to perr.
-`ifdef RV_NO_SPECULATIVE_CW
-	 input logic speculation_i0,
-	 input logic [31:1]	speculation_pc_i0,
-	 input logic speculation_i1,
-	 input logic [31:1]	speculation_pc_i1,
-	 input logic spec_end_i0_e1,
-	 input logic [31:1] spec_end_pc_i0_e1,
-	 input logic spec_end_i1_e1,
-	 input logic [31:1] spec_end_pc_i1_e1,
-	 input logic spec_end_i0_e4,
-	 input logic [31:1] spec_end_pc_i0_e4,
-	 input logic spec_end_i1_e4,
-	 input logic [31:1] spec_end_pc_i1_e4,
-	 input logic spec_exu, //FLUSH
-	 input logic [31:1] spec_exu_pc,
-	 input logic ifu_i0_valid,
-	 input logic ifu_i1_valid,
-	 output logic underspec,
-`endif
    input logic [31:1]                fetch_addr_f1,                 // Fetch Address byte aligned always.      F1 stage.
    input logic                       ifc_fetch_uncacheable_f1,      // The fetch request is uncacheable space. F1 stage
    input logic                       ifc_fetch_req_f1,              // Fetch request. Comes with the address.  F1 stage
@@ -161,6 +142,7 @@ module ifu_mem_ctl
 `ifdef RV_ICACHE_LOCKING
    input logic                       ic_to_lock,
    input logic                       release_locks,
+   output logic                      lockflush,
 `endif
    output logic [15:2]               ic_debug_addr,      // Read/Write addresss to the Icache.
    output logic                      ic_debug_rd_en,     // Icache debug rd
@@ -364,39 +346,6 @@ module ifu_mem_ctl
    logic         debug_data_clken;
    logic                   ifc_region_acc_fault_final_f1, ifc_region_acc_fault_memory, ifc_region_acc_okay;
 
-`ifdef RV_NO_SPECULATIVE_CW
-	logic spec00, spec01, spec02, spec03, spec10, spec11, spec12, spec13;
-	logic[31:1] spec00_pc, spec01_pc, spec02_pc, spec03_pc, spec10_pc, spec11_pc, spec12_pc, spec13_pc;
-
-	rvdff #(1) spec00ff    (.*, .clk(active_clk), .din(speculation_i0 & !spec_exu), .dout(spec00));
-	rvdff #(1) spec10ff    (.*, .clk(active_clk), .din(speculation_i1 & !spec_exu), .dout(spec10));
-	rvdff #(31) spec00pcff (.*, .clk(active_clk), .din(speculation_pc_i0), .dout(spec00_pc));
-	rvdff #(31) spec10pcff (.*, .clk(active_clk), .din(speculation_pc_i1), .dout(spec10_pc));
-	rvdff #(1) spec01ff    (.*, .clk(active_clk), .din(spec00 & !(speculation_i0 & (spec00_pc == speculation_pc_i0)) & !specm00 & !spec_exu), .dout(spec01));
-	rvdff #(1) spec11ff    (.*, .clk(active_clk), .din(spec10 & !((speculation_i1 & (spec10_pc == speculation_pc_i1)) | (speculation_i0 & (spec10_pc == speculation_pc_i0))) & !specm10 & !spec_exu), .dout(spec11));
-	rvdff #(31) spec01pcff (.*, .clk(active_clk), .din(spec00_pc), .dout(spec01_pc));
-	rvdff #(31) spec11pcff (.*, .clk(active_clk), .din(spec10_pc), .dout(spec11_pc));
-	rvdff #(1) spec02ff    (.*, .clk(active_clk), .din(spec01 & !spec_exu), .dout(spec02));
-	rvdff #(1) spec12ff    (.*, .clk(active_clk), .din(spec11 & !spec_exu), .dout(spec12));
-	rvdff #(31) spec02pcff (.*, .clk(active_clk), .din(spec01_pc), .dout(spec02_pc));
-	rvdff #(31) spec12pcff (.*, .clk(active_clk), .din(spec11_pc), .dout(spec12_pc));
-	rvdff #(1) spec03ff    (.*, .clk(active_clk), .din(spec02 & !spec_exu), .dout(spec03));
-	rvdff #(1) spec13ff    (.*, .clk(active_clk), .din(spec12 & !spec_exu), .dout(spec13));
-	rvdff #(31) spec03pcff (.*, .clk(active_clk), .din(spec02_pc), .dout(spec03_pc));
-	rvdff #(31) spec13pcff (.*, .clk(active_clk), .din(spec12_pc), .dout(spec13_pc));
-
-	logic specmatch, specm00, specm10, specm03, specm13;
-	assign specm00 = !spec00 | ((spec00_pc == spec_end_pc_i0_e1) & spec_end_i0_e1);
-	assign specm10 = !spec10 | ((spec10_pc == spec_end_pc_i1_e1) & spec_end_i1_e1);
-	assign specm03 = !spec03 | ((spec03_pc == spec_end_pc_i0_e4) & spec_end_i0_e4);
-	assign specm13 = !spec13 | ((spec13_pc == spec_end_pc_i1_e4) & spec_end_i1_e4);
-	assign specmatch = specm00 & specm10 & specm03 & specm13;
-//	rvdff #(1) underspecff  (.*, .clk(active_clk), .din((speculation_i0 | speculation_i1 | (underspec & !specmatch)) & !spec_exu), .dout(underspec));
- 	assign underspec = (speculation_i0 | speculation_i1 | !specmatch | spec01 | spec02 | spec11 | spec12) & !spec_exu;
-
-
-
-`endif
   logic [3:0] wr_en_stalled;	
   logic [3:0] replace_way_mb_randomized;
 `ifdef RV_ICACHE_LOCKING
@@ -487,11 +436,7 @@ module ifu_mem_ctl
       case (miss_state)
          IDLE: begin : idle
                   miss_nxtstate = (ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
-									`ifdef RV_NO_SPECULATIVE_CW 
-													miss_state_en = ic_act_miss_f2 & ! underspec & !spec_exu;
-									`else 
 													miss_state_en = ic_act_miss_f2; 
-									`endif
          end
          CRIT_BYP_OK: begin : crit_byp_ok
                   miss_nxtstate = ( ic_byp_hit_f2 &  ~exu_flush_final & ~dec_takenbr & ~(ifu_wr_en_new & last_beat) & ~uncacheable_miss_ff) ? MISS_WAIT :
@@ -1182,7 +1127,7 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
 // `endif
 //   assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 & ~axi_cmd_rsp_pend;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	 assign    ifu_axi_arvalid                 = `ifdef RV_NO_SPECULATIVE_CW (underspec) ? 1'b0 : `endif ifc_axi_ic_req_ff2 ;
+	 assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 ;
    assign    ifu_axi_arid[IFU_BUS_TAG-1:0]   = IFU_BUS_TAG'(axi_rd_addr_count[2:0]);
    assign    ifu_axi_araddr[31:0]            = {ifu_ic_req_addr_f2[31:3],3'b0};
 	 assign    ifu_axi_rready                  = 1'b1;
@@ -1346,17 +1291,7 @@ assign ifu_tag_wren[3] = axi_w3_wren_last | w3_wren_reset_miss;
 assign ifu_wr_en_new   = axi_ifu_wr_en_new;
 assign ifu_wr_en_new_q = axi_ifu_wr_en_new_q;
 assign ifu_wr_data_new[63:0]=  axi_ifu_wr_data_new[63:0];
-`ifdef RV_NO_SPECULATIVE_CW
-	logic ignorenextmemread;
-	logic currentlyreadingff;
-
-	rvdff #(1) currentreadff (.*, .clk(active_clk), .din(axi_ic_wr_en[3:0] != '0), .dout(currentlyreadingff));
-	//rvdff #(1) ignorenextff (.*, .clk(active_clk), .din((spec_exu & (ifc_axi_ic_req_ff2 | ifc_axi_ic_req_ff_in | ifc_fetch_req_f1)) | (ignorenextmemread & !((axi_ic_wr_en[3:0] == '0) & currentlyreadingff))), .dout(ignorenextmemread));
-	rvdff #(1) ignorenextff (.*, .clk(active_clk), .din((spec_exu & (ifc_axi_ic_req_ff2 | ifc_axi_ic_req_ff_in | ifc_fetch_req_f1)) | (ignorenextmemread & !ic_act_miss_f2)), .dout(ignorenextmemread));
-	assign ic_wr_en[3:0] = /*ignorenextmemread ? 4'b0000 :*/ axi_ic_wr_en[3:0];
-`else
-	assign ic_wr_en[3:0]   =  axi_ic_wr_en[3:0];
-`endif
+assign ic_wr_en[3:0]   =  axi_ic_wr_en[3:0];
 assign ic_write_stall  = ifu_wr_en_new &  ~(((miss_state== CRIT_BYP_OK) & ~(ifu_wr_en_new & last_beat)));
 
    rvdff #(1) reset_all_tag_ff (.*, .clk(active_clk),  .din(dec_tlu_fence_i_wb), .dout(reset_all_tags));
@@ -1462,7 +1397,12 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
 
 
 `ifdef RV_ICACHE_LOCKING
+	
+	localparam C_SZ = $clog2(ICACHE_TAG_DEPTH*32);
 
+	logic [C_SZ-1:0] lockctr;
+	rvdffsc #(C_SZ) lockctrff (.*, .clear(release_locks), .en(ic_wr_en[0] | ic_wr_en[1] | ic_wr_en[2]), .din(lockctr + C_SZ'(1)), .dout(lockctr));	
+	assign lockflush = lockctr[C_SZ-1]; 
 
   for (j=0 ; j< 32; j++) begin : LOCKED 
     rvdffsc #(1) ic_way0_lock (.*,

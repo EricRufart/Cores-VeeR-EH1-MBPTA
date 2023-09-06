@@ -13,6 +13,7 @@ module loop_detector #(
     input  logic [31:1] dec_takenbr_target,
     input  logic [31:1] last_pc,
 
+		input logic 				lockflush,
     output logic        lock_cache, 
     output logic        lock_start   //AKA lock_release 
 );
@@ -56,7 +57,7 @@ module loop_detector #(
     // After a taken branch, we get a window with fluhed insn, keep the last lock state
     // until we get a valid PC
     assign lock_cache = 1'b1; //push | ((/*inst_valid ? innermost_loop : */last_lock_ff) & ~empty & ~is_call);
-    assign lock_start = push;
+    assign lock_start = push | (empty & lockflush);
 
     // Conditional branches do not need the extra check, but JALs need it
     // We assume that calls to functions always break the loop

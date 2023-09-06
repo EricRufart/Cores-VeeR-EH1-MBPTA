@@ -284,14 +284,7 @@ module dec_decode_ctl
 
    output logic         lock_cache,
    output logic         lock_start,
-
-`ifdef RV_NO_SPECULATIVE_CW
-	 output logic 			  speculation_i0,
-	 output logic [31:1]	speculation_pc_i0,
-	 output logic 			  speculation_i1,
-	 output logic [31:1]	speculation_pc_i1,
-`endif
-
+   input logic         	lockflush,
 
    input  logic        scan_mode
    );
@@ -714,12 +707,6 @@ module dec_decode_ctl
    assign dec_i0_select_pc_d = i0_dp.pc;
    assign dec_i1_select_pc_d = i1_dp.pc;
 
-`ifdef RV_NO_SPECULATIVE_CW
-	 assign speculation_i0 = i0_predict_br & i0_valid_d;
-	 assign speculation_pc_i0 = dec_i0_pc_d;
-	 assign speculation_i1 = i1_predict_br & i1_valid_d;
-	 assign speculation_pc_i1 = dec_i1_pc_d;
-`endif
    // branches that can be predicted
 
    assign i0_predict_br =  i0_dp.condbr | i0_pcall | i0_pja | i0_pret;

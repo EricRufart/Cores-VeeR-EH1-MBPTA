@@ -58,9 +58,6 @@ module ifu_ifc_ctl
 `ifdef RV_NO_BRANCHPRED
   	input logic end_branch_stall,
 `endif
-`ifdef RV_NO_SPECULATIVE_CW
-	  input logic allow_cont_fetch,
-`endif
    output logic [31:1] ifc_fetch_addr_f1, // fetch addr F1
    output logic [31:1] ifc_fetch_addr_f2,  // fetch addr F2
 
@@ -148,11 +145,6 @@ module ifu_ifc_ctl
    // - Miss *or* flush during WFM (icache miss buffer is blocking)
    // - Sequential
 
-`ifdef RV_NO_SPECULATIVE_CW
-	 logic fake_last, jb;
-	 assign fake_last = sel_next_addr_bf & !allow_cont_fetch & (fetch_addr_next[5:4] == 2'b00);
-	 rvdff #(1) jbff (.*, .clk(active_clk), .din(allow_cont_fetch & (sel_btb_addr_bf)), .dout(jb));
-`endif
 
 	 assign sel_last_addr_bf = ~miss_sel_flush & ~ifc_fetch_req_f1 & ifc_fetch_req_f2 & ~ifu_bp_kill_next_f2;
    assign sel_miss_addr_bf = ~miss_sel_flush & ~ifu_bp_kill_next_f2 & ~ifc_fetch_req_f1 & ~ifc_fetch_req_f2;
@@ -162,22 +154,22 @@ module ifu_ifc_ctl
    assign fetch_addr_bf[31:1] = ( ({31{miss_sel_flush}} &  exu_flush_path_final[31:1]) | // FLUSH path
                                    ({31{sel_miss_addr_bf}} & miss_addr[31:1]) | // MISS path
                                    ({31{sel_btb_addr_bf}} & {ifu_bp_btb_target_f2[31:1]})| // BTB target
-																	 ({31{sel_last_addr_bf /*`ifdef RV_NO_SPECULATIVE_CW | fake_last  `endif*/}} & {ifc_fetch_addr_f1[31:1]})| // Last cycle
-																	 ({31{sel_next_addr_bf /*`ifdef RV_NO_SPECULATIVE_CW & !fake_last `endif*/}} & {fetch_addr_next[31:1]})); // SEQ path
+																	 ({31{sel_last_addr_bf}} & {ifc_fetch_addr_f1[31:1]})| // Last cycle
+																	 ({31{sel_next_addr_bf}} & {fetch_addr_next[31:1]})); // SEQ path
 
    assign {overflow_nc, fetch_addr_next[31:1]} = {({1'b0, ifc_fetch_addr_f1[31:4]} + 29'b1), 3'b0};
 
 	 assign ifc_fetch_req_bf = (fetch_ns | fetch_crit_word) ;
-	 assign fetch_bf_en = (fetch_ns | fetch_crit_word) `ifdef RV_NO_SPECULATIVE_CW & !((fake_last | jb) & !exu_flush_final ) `endif;
+	 assign fetch_bf_en = (fetch_ns | fetch_crit_word);
 
    assign miss_f2 = ifc_fetch_req_f2 & ~ic_hit_f2;
 
    assign mb_empty_mod = (ifu_ic_mb_empty | exu_flush_final | dec_takenbr) & ~dma_stall & ~miss_f2 & ~miss_a;
 
    // Halt flushes and takes us to IDLE
-	 assign goto_idle = exu_flush_final & dec_tlu_flush_noredir_wb ;//`ifdef RV_NO_SPECULATIVE_CW | (!allow_cont_fetch & fetch_addr_bf[4]) `endif;
+	 assign goto_idle = exu_flush_final & dec_tlu_flush_noredir_wb ;
    // If we're in IDLE, and we get a flush, goto FETCH
-	 assign leave_idle = exu_flush_final & ~dec_tlu_flush_noredir_wb /* `ifdef RV_NO_SPECULATIVE_CW | allow_cont_fetch `endif)*/ & idle ;
+	 assign leave_idle = exu_flush_final & ~dec_tlu_flush_noredir_wb & idle ;
 
 //.i 7
 //.o 2

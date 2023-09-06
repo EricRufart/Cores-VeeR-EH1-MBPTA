@@ -35,9 +35,6 @@ module exu_alu_ctl
 	`ifdef RV_NO_BRANCHPRED
 		output logic end_bp_stall,
 	`endif
-  `ifdef RV_NO_SPECULATIVE_CW
-		output logic br_decided,
-	`endif
 
    input logic valid,                     // Valid
    input logic flush,                     // Flush pipeline
@@ -232,9 +229,6 @@ rvdffs #(32) cr_ff (.*, .clk(active_clk), .din(correct + 1),  .dout(correct), .e
                      .dout(pcout[31:1])
                       );
 
-`ifdef RV_NO_SPECULATIVE_CW
-	 assign br_decided = pred_correct;//(ap.predict_t | ap.predict_nt) & valid_ff;
-`endif	
    // pred_correct is for the npc logic
    // pred_correct indicates not to use the flush_path
    // for any_jal pred_correct==0
