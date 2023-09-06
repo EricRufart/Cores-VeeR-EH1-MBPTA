@@ -21,7 +21,7 @@
 //-----------------------------------------------------
 
 module lfsr_prng
-    import swerv_types::*;
+    import veer_types::*;
     # (
         parameter SIZE = 3
     ) (

@@ -351,7 +351,7 @@ module tb_top;
 
 
     // trace monitor
-    always @(posedge core_clk) begin
+/*    always @(posedge core_clk) begin
         wb_valid[1:0]  <= '{`DEC.dec_i1_wen_wb, `DEC.dec_i0_wen_wb};
         wb_dest[1:0]   <= '{`DEC.dec_i1_waddr_wb, `DEC.dec_i0_waddr_wb};
         wb_data[1:0]   <= '{`DEC.dec_i1_wdata_wb, `DEC.dec_i0_wdata_wb};
@@ -372,10 +372,10 @@ module tb_top;
                end
         end
         if(`DEC.dec_nonblock_load_wen) begin
-            $fwrite (el, "%10d : %10d%22s=%h ; nbL\n", cycleCnt, 0, abi_reg[`DEC.dec_nonblock_load_waddr], `DEC.lsu_nonblock_load_data);
+            $fwrite (el, "%10d : %10d%22s=%h ; nbL\n", '0 cycleCnt, 0, abi_reg[`DEC.dec_nonblock_load_waddr], `DEC.lsu_nonblock_load_data);
             tb_top.gpr[0][`DEC.dec_nonblock_load_waddr] = `DEC.lsu_nonblock_load_data;
         end
-    end
+    end*/
 
 
     initial begin
@@ -421,11 +421,11 @@ module tb_top;
 
         $readmemh("program.hex",  lmem.mem);
         $readmemh("program.hex",  imem.mem);
-        tp = $fopen("trace_port.csv","w");
-        el = $fopen("exec.log","w");
-        $fwrite (el, "//   Cycle : #inst  hart   pc    opcode    reg=value   ; mnemonic\n");
-        $fwrite (el, "//---------------------------------------------------------------\n");
-        fd = $fopen("console.log","w");
+//        tp = $fopen("trace_port.csv","w");
+       // el = $fopen("exec.log","w");
+      //  $fwrite (el, "//   Cycle : #inst  hart   pc    opcode    reg=value   ; mnemonic\n");
+      //  $fwrite (el, "//---------------------------------------------------------------\n");
+      //  fd = $fopen("console.log","w");
         commit_count = 0;
         preload_dccm();
         preload_iccm();

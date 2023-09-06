@@ -12,7 +12,7 @@ else:
 
 class SwervConfigGenerator(Generator):
     def run(self):
-        build_path="swerv_config"
+        build_path="veer_config"
         script_root = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..'))
         files = [
             {os.path.join(build_path, "common_defines.vh") : {
@@ -35,7 +35,7 @@ class SwervConfigGenerator(Generator):
         env = os.environ.copy()
         env['RV_ROOT'] = tmp_dir
         env['BUILD_PATH'] = build_path
-        args = ['configs/swerv.config'] + self.config.get('args', [])
+        args = ['configs/veer.config'] + self.config.get('args', [])
         rc = subprocess.call(args, cwd=cwd, env=env, stdout=devnull)
         if rc:
             exit(1)
