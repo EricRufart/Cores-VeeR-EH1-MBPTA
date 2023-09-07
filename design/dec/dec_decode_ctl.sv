@@ -1466,7 +1466,7 @@ end : cam_array
 `ifdef RV_ALWAYS_MISPRED
 	 assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze & ~(i0_ap.predict_nt & (dec_i1_pc_d > dec_i0_pc_d)); 
 `else
-				assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze & ~i0_predict_t;
+	 assign dec_i1_decode_d = i0_legal_decode_d & i1_valid_d & i1_dp.legal & ~i1_block_d & ~freeze `ifdef RV_STATIC_BRANCHPRED & ~i0_predict_t `endif;
 `endif
 
    assign dec_ib0_valid_eff_d = i0_valid_d & ~dec_i0_decode_d;
