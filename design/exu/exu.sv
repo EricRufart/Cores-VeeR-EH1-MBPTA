@@ -199,8 +199,12 @@ module exu
    output logic        exu_i1_br_ret_e4,                               // to DEC  I1 branch return
    output logic        exu_i1_br_call_e4,                              // to DEC  I1 branch call
    output logic        exu_flush_upper_e2,                             // flush upper, either i0 or i1
-
-   output rets_pkt_t exu_rets_e1_pkt,                                  // to IFU - I0+I1 {call, return, pc}
+`ifdef RV_NO_MISPRED_CW
+	 output logic 				mispred_conf,
+	 output logic 				mispred_valid,
+	 output logic [31:1]  mispred_pc,
+`endif
+	 output rets_pkt_t exu_rets_e1_pkt,                                  // to IFU - I0+I1 {call, return, pc}
    output rets_pkt_t exu_rets_e4_pkt,                                  // to IFU - I0+I1 {call, return, pc}
 
    output logic exu_pmu_i0_br_misp,                                    // to PMU - I0 E4 branch mispredict
@@ -335,6 +339,8 @@ module exu
 
    assign csr_rs1_in_d[31:0] = (dec_csr_ren_d) ? i0_rs1_d[31:0] : exu_csr_rs1_e1[31:0];
 
+   logic i0_predtff_e1, i1_predtff_e1, i0_predtff_e4, i1_predtff_e4;
+
    logic       i0_e1_data_en, i0_e2_data_en, i0_e3_data_en;
    logic       i0_e1_ctl_en,  i0_e2_ctl_en,  i0_e3_ctl_en,  i0_e4_ctl_en;
 
@@ -347,8 +353,16 @@ module exu
    assign {i1_e1_data_en, i1_e2_data_en, i1_e3_data_en}                = dec_i1_data_en[4:2];
    assign {i1_e1_ctl_en,  i1_e2_ctl_en,  i1_e3_ctl_en,  i1_e4_ctl_en}  = dec_i1_ctl_en[4:1];
 
-
-
+`ifdef RV_NO_MISPRED_CW
+	// assign mispred_valid = exu_i0_flush_upper_e1 | exu_i1_flush_upper_e1 | exu_i0_flush_lower_e4 | exu_i1_flush_lower_e4 | (i0_pred_correct_upper_e1 & i0_predtff_e1) | (i1_pred_correct_upper_e1 & i1_predtff_e1 ) | (i0_pred_correct_lower_e4 & i0_predtff_e4) | (i1_pred_correct_lower_e4 & i1_predtff_e4);
+	assign mispred_valid = i0_predtff_e1 | i1_predtff_e1 | i0_predtff_e4 | i1_predtff_e4;
+	 assign mispred_conf  = exu_i0_flush_upper_e1 | exu_i1_flush_upper_e1 | exu_i0_flush_lower_e4 | exu_i1_flush_lower_e4;
+	 assign mispred_pc = ({31{exu_i0_flush_upper_e1 | (/*i0_pred_correct_upper_e1 &*/ i0_predtff_e1)}} & exu_i0_pc_e1) | 
+	 										 ({31{exu_i1_flush_upper_e1 | (/*i1_pred_correct_upper_e1 &*/ i1_predtff_e1)}} & exu_i1_pc_e1) | 
+	 										 ({31{exu_i0_flush_lower_e4 | (/*i0_pred_correct_lower_e4 &*/ i0_predtff_e4)}} & i0_alu_pc_nc[31:1]) | 
+	 										 ({31{exu_i1_flush_lower_e4 | (/*i1_pred_correct_lower_e4 &*/ i1_predtff_e4)}} & i1_alu_pc_nc[31:1]); 
+	 										 
+`endif
 
    rvdffe #(32) csr_rs1_ff (.*, .en(i0_e1_data_en), .din(csr_rs1_in_d[31:0]), .dout(exu_csr_rs1_e1[31:0]));
 
@@ -460,6 +474,7 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
                           .out           ( exu_i0_result_e1[31:0]      ),   // O
                           .flush_upper   ( flush_aux_i0       				 ),   // O : will be 0 if freeze this cycle
                           .flush_path    ( flush_path_aux_i0[31:1]  	 ),   // O
+                          .pred_t_ff     ( i0_predtff_e1            	 ),   // O
                           .predict_p_ff  ( i0_predict_p_e1             ),   // O
                           .pc_ff         ( exu_i0_pc_e1[31:1]          ),   // O
                           .pred_correct  ( i0_pred_correct_upper_e1    )    // O
@@ -486,6 +501,7 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
                           .out           ( exu_i1_result_e1[31:0]      ),   // O
                           .flush_upper   ( flush_aux_i1      					 ),   // O : will be 0 if freeze this cycle
                           .flush_path    ( flush_path_aux_i1[31:1] 		 ),   // O
+                          .pred_t_ff     ( i1_predtff_e1            	 ),   // O
                           .predict_p_ff  ( i1_predict_p_e1             ),   // O
                           .pc_ff         ( exu_i1_pc_e1[31:1]          ),   // O
                           .pred_correct  ( i1_pred_correct_upper_e1    )    // O
@@ -685,6 +701,7 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
                           .out           ( exu_i0_result_e4[31:0]      ),   // O
                           .flush_upper   ( flush_aux_i0s       ),   // O
                           .flush_path    ( flush_path_aux_i0s[31:1]  ),   // O
+                          .pred_t_ff     ( i0_predtff_e4            	 ),   // O
                           .predict_p_ff  ( i0_predict_p_e4             ),   // O
                           .pc_ff         ( i0_alu_pc_nc[31:1]          ),   // O
                           .pred_correct  ( i0_pred_correct_lower_e4    )    // O
@@ -711,6 +728,7 @@ rvdffs #(32) lc(.*, .clk(active_clk), .en(~freeze & wait_after_flush & !dec_i0_a
                           .out           ( exu_i1_result_e4[31:0]      ),   // O
                           .flush_upper   ( flush_aux_i1s				       ),   // O
                           .flush_path    ( flush_path_aux_i1s[31:1]  ),   // O
+                          .pred_t_ff     ( i1_predtff_e4            	 ),   // O
                           .predict_p_ff  ( i1_predict_p_e4             ),   // O
                           .pc_ff         ( i1_alu_pc_nc[31:1]          ),   // O
                           .pred_correct  ( i1_pred_correct_lower_e4    )    // O

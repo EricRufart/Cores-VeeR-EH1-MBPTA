@@ -35,7 +35,7 @@ module exu_alu_ctl
 	`ifdef RV_NO_BRANCHPRED
 		output logic end_bp_stall,
 	`endif
-
+	 output logic pred_t_ff,
    input logic valid,                     // Valid
    input logic flush,                     // Flush pipeline
 
@@ -256,6 +256,8 @@ rvdffs #(32) cr_ff (.*, .clk(active_clk), .din(correct + 1),  .dout(correct), .e
 	 // pcall and pret are included here
 	 assign cond_mispredict = (ap.predict_t & ~actual_taken) |
                             (ap.predict_nt & actual_taken);
+
+	 assign pred_t_ff = (ap.predict_t | any_jal) & valid_ff;
 
    // for any_jal adder output is the flush path
    assign flush_path[31:1] = (any_jal) ? aout[31:1] : pcout[31:1];

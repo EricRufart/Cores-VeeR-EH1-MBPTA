@@ -286,6 +286,11 @@ module dec_decode_ctl
    output logic         lock_start,
    input logic         	lockflush,
 
+`ifdef RV_NO_MISPRED_CW
+	 output logic 			 spec_taken,
+	 output logic	[31:1] spec_pc,
+`endif
+
    input  logic        scan_mode
    );
 
@@ -599,6 +604,10 @@ module dec_decode_ctl
    assign disable_secondary        = dec_tlu_sec_alu_disable;
 `endif
 
+`ifdef RV_NO_MISPRED_CW
+	 assign spec_taken= ((i0_predict_t & i0_valid_d) | (i1_predict_t & i1_valid_d)) & !flush_lower_wb & ! flush_final_e3;
+	 assign spec_pc = (i0_predict_t)  ? dec_i0_pc_d : dec_i1_pc_d;
+`endif
 
 // branch prediction
 

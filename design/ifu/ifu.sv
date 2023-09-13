@@ -242,6 +242,13 @@ module ifu
    input  cache_debug_pkt_t        dec_tlu_ic_diag_pkt ,
    output logic                    ifu_ic_debug_rd_data_valid,
 
+`ifdef RV_NO_MISPRED_CW
+	 input logic 			 spec_taken,
+	 input logic	[31:1] spec_pc,
+	 input logic 				mispred_conf,
+	 input logic 				mispred_valid,
+	 input logic [31:1] mispred_pc,
+`endif
 
 
    input logic scan_mode

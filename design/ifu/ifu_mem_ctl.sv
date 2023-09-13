@@ -190,6 +190,15 @@ module ifu_mem_ctl
    input  logic                      dec_tlu_core_ecc_disable,   // disable the ecc checking and flagging
    output logic                      ifu_ic_debug_rd_data_valid, // debug data valid.
 
+`ifdef RV_NO_MISPRED_CW
+	 input logic		 		spec_taken,
+	 input logic [31:1] spec_pc,
+	 input logic 				mispred_conf,
+	 input logic 				mispred_valid,
+	 input logic [31:1] mispred_pc,
+
+`endif
+
 
    input  logic         scan_mode
    );
@@ -426,7 +435,7 @@ module ifu_mem_ctl
    //////////////////////////////////// Create Miss State Machine ///////////////////////
    logic   miss_state_en;
 
-   typedef enum logic [2:0] {IDLE=3'b000, CRIT_BYP_OK=3'b001, HIT_U_MISS=3'b010, MISS_WAIT=3'b011,CRIT_WRD_RDY=3'b100,SCND_MISS=3'b101} miss_state_t;
+	 typedef enum logic [2:0] {IDLE=3'b000, CRIT_BYP_OK=3'b001, HIT_U_MISS=3'b010, MISS_WAIT=3'b011,CRIT_WRD_RDY=3'b100,SCND_MISS=3'b101, MP_WAIT=3'b110} miss_state_t;
    miss_state_t miss_state, miss_nxtstate;
 
    // FIFO state machine
@@ -435,9 +444,15 @@ module ifu_mem_ctl
       miss_state_en   = 1'b0;
       case (miss_state)
          IDLE: begin : idle
-                  miss_nxtstate = (ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
-													miss_state_en = ic_act_miss_f2; 
+								 miss_nxtstate = `ifdef RV_NO_MISPRED_CW spec_in ? MP_WAIT : `endif(ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
+								 miss_state_en = ic_act_miss_f2 `ifdef RV_NO_MISPRED_CW | spec_in `endif; 
          end
+`ifdef RV_NO_MISPRED_CW
+				 MP_WAIT: begin : mp_wait
+								 miss_nxtstate = (ic_act_miss_f2 & !mispred_conf) ? ((ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS) : IDLE;
+								 miss_state_en = ~spec_in;
+				 end
+`endif
          CRIT_BYP_OK: begin : crit_byp_ok
                   miss_nxtstate = ( ic_byp_hit_f2 &  ~exu_flush_final & ~dec_takenbr & ~(ifu_wr_en_new & last_beat) & ~uncacheable_miss_ff) ? MISS_WAIT :
                                   ( ic_byp_hit_f2                                                    &  uncacheable_miss_ff) ? IDLE :
@@ -468,7 +483,7 @@ module ifu_mem_ctl
          end
       endcase
    end
-   rvdffs #(($bits(miss_state_t))) miss_state_ff (.clk(free_clk), .din(miss_nxtstate), .dout({miss_state}), .en(miss_state_en),   .*);
+	 rvdffs #(($bits(miss_state_t))) miss_state_ff (.clk(free_clk), .din(miss_nxtstate), .dout({miss_state}), .en(miss_state_en),   .*);
    logic    sel_hold_imb     ;
 
    assign miss_pending       =  (miss_state != IDLE) ;
@@ -494,11 +509,11 @@ module ifu_mem_ctl
    assign ic_byp_hit_f2         = ic_crit_wd_rdy  & fetch_req_icache_f2 &  miss_pending ;
    assign ic_act_hit_f2         = (|ic_rd_hit[3:0]) & fetch_req_icache_f2 & ~reset_all_tags & (~miss_pending | (miss_state==HIT_U_MISS)) & ~sel_mb_addr_ff;
 	 assign ic_act_miss_f2        = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & ~miss_pending & ~ifc_region_acc_fault_f2;
-   assign ic_miss_under_miss_f2 = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & (miss_state == HIT_U_MISS) ;
+   assign ic_miss_under_miss_f2 = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & (miss_state == HIT_U_MISS | miss_state==MP_WAIT) ;
    assign ic_hit_f2             =  ic_act_hit_f2 | ic_byp_hit_f2 | ic_iccm_hit_f2 | (ifc_region_acc_fault_f2 & ifc_fetch_req_f2 & ~((miss_state == CRIT_BYP_OK) | (miss_state == SCND_MISS)));
 
    assign uncacheable_miss_in   = sel_hold_imb ? uncacheable_miss_ff : ifc_fetch_uncacheable_f1 ;
-   assign imb_in[31:1]          = sel_hold_imb ? imb_ff[31:1] : {fetch_addr_f1[31:1]} ;
+   assign imb_in[31:1]          = (sel_hold_imb) ? imb_ff[31:1] : {fetch_addr_f1[31:1]} ;
 
 
 
@@ -1127,7 +1142,17 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
 // `endif
 //   assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 & ~axi_cmd_rsp_pend;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	 assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 ;
+
+`ifdef RV_NO_MISPRED_CW
+	 	logic spec_chambered, spec_in;
+	 	logic[31:1] spec_chambered_pc;
+		assign spec_in = (spec_taken | (spec_chambered & !(mispred_valid & (spec_chambered_pc == mispred_pc)))) & !exu_flush_final;
+		rvdff #(1)  specchamb (.*, .clk(active_clk), .din (spec_in), .dout(spec_chambered));
+		rvdff #(31)  specchambpc (.*, .clk(active_clk), .din (spec_taken ? spec_pc : spec_chambered_pc), .dout(spec_chambered_pc));
+
+`endif	 
+
+   assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 ;
    assign    ifu_axi_arid[IFU_BUS_TAG-1:0]   = IFU_BUS_TAG'(axi_rd_addr_count[2:0]);
    assign    ifu_axi_araddr[31:0]            = {ifu_ic_req_addr_f2[31:3],3'b0};
 	 assign    ifu_axi_rready                  = 1'b1;
@@ -1169,7 +1194,7 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
    assign axi_set_rd_addr_cnt     = ic_act_miss_f2  ;
    assign axi_hold_rd_addr_cnt    = ~axi_inc_rd_addr_cnt & ~axi_set_rd_addr_cnt;
 
-   assign axi_new_rd_addr_count[2:0] = ~miss_pending ? {imb_ff[5:4],1'b0} :  axi_inc_rd_addr_cnt ? (axi_rd_addr_count[2:0] + 3'b001) : axi_rd_addr_count[2:0];
+   assign axi_new_rd_addr_count[2:0] = (~miss_pending) ? {imb_ff[5:4],1'b0} :  axi_inc_rd_addr_cnt ? (axi_rd_addr_count[2:0] + 3'b001) : axi_rd_addr_count[2:0];
 
 
    rvdff_fpga  #(3)  axi_cmd_beat_ff (.*,           .clk(axiclk_reset), .clken(axi_ifu_bus_clk_en | ic_act_miss_f2), .rawclk(clk), .din ({axi_new_cmd_beat_count[2:0]}), .dout({axi_cmd_beat_count[2:0]}));

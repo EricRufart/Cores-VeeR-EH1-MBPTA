@@ -404,7 +404,10 @@ module dec
 	 output logic         lock_cache,
    output logic         lock_start,
    input logic         	lockflush,
-
+`ifdef RV_NO_MISPRED_CW
+	 output logic 			 spec_taken,
+	 output logic	[31:1] spec_pc,
+`endif
    input  logic        scan_mode
 
    );

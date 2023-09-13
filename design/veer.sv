@@ -1019,7 +1019,13 @@ module veer
    logic        mhwakeup;
 
    logic        dec_tlu_claim_ack_wb;
-
+`ifdef RV_NO_MISPRED_CW
+	 logic 			 spec_taken;
+	 logic	[31:1] spec_pc;
+	 logic 				mispred_conf;
+	 logic 				mispred_valid;
+	 logic [31:1] mispred_pc;
+`endif
    dec dec (
             .dbg_cmd_wrdata(dbg_cmd_wrdata[1:0]),
             .rst_l(core_rst_l),
