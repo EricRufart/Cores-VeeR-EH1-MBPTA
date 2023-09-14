@@ -343,6 +343,7 @@ module tb_top;
             $display("See \"exec.log\" for execution trace with register updates..\n");
             $display("\n ALU i0: predin = %0d correct = %0d mispred = %0d takenpred = %0d Ntknpred = %0d", `EXU.i0_alu_e1.predin[31:0],`EXU.i0_alu_e1.correct[31:0], `EXU.i0_alu_e1.mispred[31:0], `EXU.i0_alu_e1.tkp[31:0], `EXU.i0_alu_e1.ntkp[31:0]);
             $display("\n ALU i1: predin = %0d correct = %0d mispred = %0d takenpred = %0d Ntknpred = %0d", `EXU.i1_alu_e1.predin[31:0],`EXU.i1_alu_e1.correct[31:0], `EXU.i1_alu_e1.mispred[31:0], `EXU.i1_alu_e1.tkp[31:0], `EXU.i1_alu_e1.ntkp[31:0]);
+            $display("\n Mispred CW (only taken): i0e1: %0d, i1e1: %0d, i0e4: %0d, i1e4: %0d", `EXU.i0_alu_e1.mispredt[31:0],`EXU.i1_alu_e1.mispredt[31:0], `EXU.i0_alu_e4.mispredt[31:0], `EXU.i1_alu_e4.mispredt[31:0]);
             $display("TEST_PASSED");
             $finish;
         end

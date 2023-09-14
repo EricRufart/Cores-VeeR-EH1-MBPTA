@@ -444,8 +444,8 @@ module ifu_mem_ctl
       miss_state_en   = 1'b0;
       case (miss_state)
          IDLE: begin : idle
-								 miss_nxtstate = `ifdef RV_NO_MISPRED_CW spec_in ? MP_WAIT : `endif(ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
-								 miss_state_en = ic_act_miss_f2 `ifdef RV_NO_MISPRED_CW | spec_in `endif; 
+								 miss_nxtstate = /*`ifdef RV_NO_MISPRED_CW spec_in ? MP_WAIT : `endif */(ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
+								 miss_state_en = ic_act_miss_f2 /*`ifdef RV_NO_MISPRED_CW | spec_in `endif*/; 
          end
 `ifdef RV_NO_MISPRED_CW
 				 MP_WAIT: begin : mp_wait
@@ -509,7 +509,7 @@ module ifu_mem_ctl
    assign ic_byp_hit_f2         = ic_crit_wd_rdy  & fetch_req_icache_f2 &  miss_pending ;
    assign ic_act_hit_f2         = (|ic_rd_hit[3:0]) & fetch_req_icache_f2 & ~reset_all_tags & (~miss_pending | (miss_state==HIT_U_MISS)) & ~sel_mb_addr_ff;
 	 assign ic_act_miss_f2        = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & ~miss_pending & ~ifc_region_acc_fault_f2;
-   assign ic_miss_under_miss_f2 = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & (miss_state == HIT_U_MISS | miss_state==MP_WAIT) ;
+   assign ic_miss_under_miss_f2 = (~(|ic_rd_hit[3:0]) | reset_all_tags) & fetch_req_icache_f2 & (miss_state == HIT_U_MISS/* | miss_state==MP_WAIT*/) ;
    assign ic_hit_f2             =  ic_act_hit_f2 | ic_byp_hit_f2 | ic_iccm_hit_f2 | (ifc_region_acc_fault_f2 & ifc_fetch_req_f2 & ~((miss_state == CRIT_BYP_OK) | (miss_state == SCND_MISS)));
 
    assign uncacheable_miss_in   = sel_hold_imb ? uncacheable_miss_ff : ifc_fetch_uncacheable_f1 ;
@@ -1155,7 +1155,7 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
    assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 ;
    assign    ifu_axi_arid[IFU_BUS_TAG-1:0]   = IFU_BUS_TAG'(axi_rd_addr_count[2:0]);
    assign    ifu_axi_araddr[31:0]            = {ifu_ic_req_addr_f2[31:3],3'b0};
-	 assign    ifu_axi_rready                  = 1'b1;
+	 assign    ifu_axi_rready                  = `ifdef RV_NO_MISPRED_CW spec_in ? 1'b0 :`endif 1'b1;
    assign    ifu_axi_arsize[2:0]             = 3'b011;
    assign    ifu_axi_arcache[3:0]            = 4'b1111;
    assign    ifu_axi_arprot[2:0]             = 3'b100;

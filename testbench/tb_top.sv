@@ -315,6 +315,7 @@ module tb_top;
     string                      abi_reg[32]; // ABI register names
 
 `define DEC rvtop.veer.dec
+`define EXU rvtop.veer.exu
 
     assign mailbox_write = lmem.mailbox_write;
     assign WriteData = lmem.WriteData;
@@ -340,6 +341,8 @@ module tb_top;
         if(mailbox_write && WriteData[7:0] == 8'hff) begin
             $display("\nFinished : minstret = %0d, mcycle = %0d", `DEC.tlu.minstretl[31:0],`DEC.tlu.mcyclel[31:0]);
             $display("See \"exec.log\" for execution trace with register updates..\n");
+            $display("\n ALU i0: predin = %0d correct = %0d mispred = %0d takenpred = %0d Ntknpred = %0d", `EXU.i0_alu_e1.predin[31:0],`EXU.i0_alu_e1.correct[31:0], `EXU.i0_alu_e1.mispred[31:0], `EXU.i0_alu_e1.tkp[31:0], `EXU.i0_alu_e1.ntkp[31:0]);
+            $display("\n ALU i1: predin = %0d correct = %0d mispred = %0d takenpred = %0d Ntknpred = %0d", `EXU.i1_alu_e1.predin[31:0],`EXU.i1_alu_e1.correct[31:0], `EXU.i1_alu_e1.mispred[31:0], `EXU.i1_alu_e1.tkp[31:0], `EXU.i1_alu_e1.ntkp[31:0]);
             $display("TEST_PASSED");
             $finish;
         end
@@ -364,7 +367,7 @@ module tb_top;
            for (int i=0; i<2; i++)
                if (trace_rv_i_valid_ip[i]==1) begin
                    commit_count++;
-                   $fwrite (el, "%10d : %8s %0d %h %h%13s ; %s\n", cycleCnt, $sformatf("#%0d",commit_count), 0,
+                   $fwrite (el, "%10d : %8s %0d %h %h%13s ; %s\n", '0/*cycleCnt*/, $sformatf("#%0d",commit_count), 0,
                            trace_rv_i_address_ip[31+i*32 -:32], trace_rv_i_insn_ip[31+i*32-:32],
                            (wb_dest[i] !=0 && wb_valid[i]) ?  $sformatf("%s=%h", abi_reg[wb_dest[i]], wb_data[i]) : "             ",
                            dasm(trace_rv_i_insn_ip[31+i*32 -:32], trace_rv_i_address_ip[31+i*32-:32], wb_dest[i] & {5{wb_valid[i]}}, wb_data[i])
@@ -372,7 +375,7 @@ module tb_top;
                end
         end
         if(`DEC.dec_nonblock_load_wen) begin
-            $fwrite (el, "%10d : %10d%22s=%h ; nbL\n", cycleCnt, 0, abi_reg[`DEC.dec_nonblock_load_waddr], `DEC.lsu_nonblock_load_data);
+            $fwrite (el, "%10d : %10d%22s=%h ; nbL\n", '0 /*cycleCnt*/, 0, abi_reg[`DEC.dec_nonblock_load_waddr], `DEC.lsu_nonblock_load_data);
             tb_top.gpr[0][`DEC.dec_nonblock_load_waddr] = `DEC.lsu_nonblock_load_data;
         end
     end

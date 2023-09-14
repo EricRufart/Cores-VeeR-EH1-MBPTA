@@ -112,13 +112,14 @@ module exu_alu_ctl
 
 
 
-logic[31:0] predin, correct, mispred, conds_mispred, tkp, ntkp;
+logic[31:0] predin, correct, mispred, conds_mispred, tkp, ntkp, mispredt;
 rvdffs #(32) pi_ff (.*, .clk(active_clk), .din(predin + 1),   .dout(predin),  .en(valid_ff & (ap.predict_nt| ap.predict_t) & ~flush & ~freeze));
 rvdffs #(32) mp_ff (.*, .clk(active_clk), .din(mispred + 1), .dout(mispred),  .en(valid_ff & (ap.predict_nt | ap.predict_t) & flush_upper & ~flush & ~freeze));
 rvdffs #(32) cm_ff (.*, .clk(active_clk), .din(conds_mispred + 1), .dout(conds_mispred),  .en(valid_ff & (ap.predict_nt | ap.predict_t) & cond_mispredict & ~flush & ~freeze));
 rvdffs #(32) tkp_ff (.*, .clk(active_clk), .din(tkp + 1), .dout(tkp),  .en(valid_ff & ap.predict_t & ~flush & ~freeze));
 rvdffs #(32) ntkp_ff (.*, .clk(active_clk), .din(ntkp + 1), .dout(ntkp),  .en(valid_ff & ap.predict_nt & ~flush & ~freeze));
 rvdffs #(32) cr_ff (.*, .clk(active_clk), .din(correct + 1),  .dout(correct), .en(valid_ff & (ap.predict_nt | ap.predict_t) & ~flush_upper & ~flush & ~freeze));
+rvdffs #(32) mispred_t_ff (.*, .clk(active_clk), .din(mispredt + 1),   .dout(mispredt),  .en(valid_ff & ap.predict_t & ~actual_taken & ~flush & ~freeze));
 
    // immediates are just muxed into rs2
 
