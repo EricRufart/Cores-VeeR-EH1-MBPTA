@@ -2466,11 +2466,12 @@ end : cam_array
 `ifdef RV_NO_BRANCHPRED
 	 assign dec_takenbr = ((i0_predict_t | i0_predict_nt) & dec_i0_decode_d) | (i1_valid_with_dependency_blocked & (i1_predict_t | i1_predict_nt)) & ~pre_takenbr_ff;
 	 assign dec_takenbr_nv_yet = i1_valid_with_dependency_blocked & (i1_predict_t | i1_predict_nt) & ~dec_i1_decode_d & ~(i0_predict_t | i0_predict_nt);
-`else
+`else  //still inside ifdef STATIC BRANCHPRED
    assign dec_takenbr = dec_takenbr_n & ~pre_takenbr_ff;
    assign dec_takenbr_nv_yet = i1_predict_t & ~dec_i1_decode_d & ~i0_predict_t & i1_valid_with_dependency_blocked;
 `endif
 
+`ifdef RV_ICACHE_LOCKING
    // Put here the marvelous loop detector:
    loop_detector #(
     .ENTRIES(4)
@@ -2486,12 +2487,10 @@ end : cam_array
    );
 
 `else
-    assign dec_takenbr      = '0;
-    assign dec_takenbr_path = '0;
     assign lock_cache       = '0;
     assign lock_start       = '0;
+`endif //STATIC BRANCHPRED
 `endif
-
 
 
 
