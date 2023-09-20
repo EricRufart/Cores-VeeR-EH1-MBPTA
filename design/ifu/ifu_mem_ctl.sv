@@ -223,7 +223,7 @@ module ifu_mem_ctl
 
  localparam   NUM_OF_BEATS = 8 ;
 
-
+	logic [31:0] cachemisses;
 
    logic [31:1]    fetch_addr_f1_hashed; 
    logic [31:3]    ifu_ic_req_addr_f2;
@@ -438,6 +438,9 @@ module ifu_mem_ctl
 	 typedef enum logic [2:0] {IDLE=3'b000, CRIT_BYP_OK=3'b001, HIT_U_MISS=3'b010, MISS_WAIT=3'b011,CRIT_WRD_RDY=3'b100,SCND_MISS=3'b101, MP_WAIT=3'b110} miss_state_t;
    miss_state_t miss_state, miss_nxtstate;
 
+   rvdffs #(32) cm_ff (.*, .clk(active_clk), .din(cachemisses + 1), .dout(cachemisses),  .en(|ic_wr_en[3:0] ));
+
+
    // FIFO state machine
    always_comb begin : MISS_SM
       miss_nxtstate   = IDLE;
@@ -575,7 +578,9 @@ rvdffs #(4) ic_wren_copy (.*,
 `endif
 
     // Randomize the way status using a LFSR
-    lfsr_prng #($bits(replace_way_mb_randomized)) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(replace_way_mb_randomized));
+		logic[1:0] lfsrout;
+    lfsr_prng #(2) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(lfsrout));
+		assign replace_way_mb_randomized[3:0] = { lfsrout[1] & lfsrout[0], lfsrout[1] & ~lfsrout[0], ~lfsrout[1] & lfsrout[1],  ~lfsrout[1] & ~lfsrout[0]};
 
 `else // No randomization
 
@@ -618,7 +623,7 @@ rvdffs #(4) ic_wren_copy (.*,
 
    assign ifu_ic_req_addr_f2[31:3] = {imb_ff[31:6] , ic_req_addr_bits_5_3[5:3] };
    assign ifu_ic_mb_empty          = ((miss_state == HIT_U_MISS) & ~(ifu_wr_en_new & last_beat)) |  ~miss_pending ;
-   assign ifu_miss_state_idle      = (miss_state == IDLE) ;
+	 assign ifu_miss_state_idle      = (miss_state == IDLE `ifdef RV_NO_MISPRED_CW & ~spec_in `endif) ;
 
 //   four-way set associative - three bits
 //   each bit represents one branch point in a binary decision tree; let 1
@@ -653,6 +658,8 @@ rvdffs #(4) ic_wren_copy (.*,
 	`ifndef RV_ICACHE_LOCKING
 			`ifdef RV_ALWAYS_MISSING_CACHE
 					assign replace_way_mb_any = 4'b0001; 
+			`elsif RV_FAILING_LRU
+					assign replace_way_mb_any= 4'b0001;
 			`else
 					assign replace_way_mb_any = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : replace_way_mb_randomized;
 			`endif

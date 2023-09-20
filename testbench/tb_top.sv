@@ -316,6 +316,7 @@ module tb_top;
 
 `define DEC rvtop.veer.dec
 `define EXU rvtop.veer.exu
+`define IFU rvtop.veer.ifu
 
     assign mailbox_write = lmem.mailbox_write;
     assign WriteData = lmem.WriteData;
@@ -342,7 +343,19 @@ module tb_top;
             $display("\nFinished : minstret = %0d, mcycle = %0d", `DEC.tlu.minstretl[31:0],`DEC.tlu.mcyclel[31:0]);
             $display("See \"exec.log\" for execution trace with register updates..\n");
             $display("\n ALU i0: predin = %0d correct = %0d mispred = %0d takenpred = %0d Ntknpred = %0d", `EXU.i0_alu_e1.predin[31:0],`EXU.i0_alu_e1.correct[31:0], `EXU.i0_alu_e1.mispred[31:0], `EXU.i0_alu_e1.tkp[31:0], `EXU.i0_alu_e1.ntkp[31:0]);
+            $display("\n ALU i0: predin = %0d correct = %0d mispred = %0d takenpred = %0d Ntknpred = %0d", `EXU.i0_alu_e4.predin[31:0],`EXU.i0_alu_e4.correct[31:0], `EXU.i0_alu_e4.mispred[31:0], `EXU.i0_alu_e4.tkp[31:0], `EXU.i0_alu_e4.ntkp[31:0]);
             $display("\n ALU i1: predin = %0d correct = %0d mispred = %0d takenpred = %0d Ntknpred = %0d", `EXU.i1_alu_e1.predin[31:0],`EXU.i1_alu_e1.correct[31:0], `EXU.i1_alu_e1.mispred[31:0], `EXU.i1_alu_e1.tkp[31:0], `EXU.i1_alu_e1.ntkp[31:0]);
+            $display("\n ALU i1: predin = %0d correct = %0d mispred = %0d takenpred = %0d Ntknpred = %0d", `EXU.i1_alu_e4.predin[31:0],`EXU.i1_alu_e4.correct[31:0], `EXU.i1_alu_e4.mispred[31:0], `EXU.i1_alu_e4.tkp[31:0], `EXU.i1_alu_e4.ntkp[31:0]);
+            $display("\n Mispred taken: i0e1: %0d, i1e1: %0d, i0e4: %0d, i1e4: %0d", `EXU.i0_alu_e1.mispredt[31:0],`EXU.i1_alu_e1.mispredt[31:0], `EXU.i0_alu_e4.mispredt[31:0], `EXU.i1_alu_e4.mispredt[31:0]);
+						$display("Total preds = %0d", `EXU.i0_alu_e1.predin[31:0] + `EXU.i1_alu_e1.predin[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.predin[31:0] + `EXU.i1_alu_e4.predin[31:0] `endif);
+						$display("Correct preds = %0d", `EXU.i0_alu_e1.correct[31:0] + `EXU.i1_alu_e1.correct[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.correct[31:0] + `EXU.i1_alu_e4.correct[31:0] `endif);
+						$display("Total Mispreds = %0d", `EXU.i0_alu_e1.mispred[31:0] + `EXU.i1_alu_e1.mispred[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.mispred[31:0] + `EXU.i1_alu_e4.mispred[31:0] `endif);
+						$display("Predictions taken = %0d", `EXU.i0_alu_e1.tkp[31:0] + `EXU.i1_alu_e1.tkp[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.tkp[31:0] + `EXU.i1_alu_e4.tkp[31:0] `endif);
+						$display("Predictions nottaken = %0d", `EXU.i0_alu_e1.ntkp[31:0] + `EXU.i1_alu_e1.ntkp[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.ntkp[31:0] + `EXU.i1_alu_e4.ntkp[31:0] `endif);
+						$display("Mispred taken = %0d", `EXU.i0_alu_e1.mispredt[31:0] + `EXU.i1_alu_e1.mispredt[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.mispredt[31:0] + `EXU.i1_alu_e4.mispredt[31:0] `endif);
+						$display("Mispred nottaken = %0d", `EXU.i0_alu_e1.mispred[31:0] + `EXU.i1_alu_e1.mispred[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.mispred[31:0] + `EXU.i1_alu_e4.mispred[31:0] `endif - (`EXU.i0_alu_e1.mispredt[31:0] + `EXU.i1_alu_e1.mispredt[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.mispredt[31:0] + `EXU.i1_alu_e4.mispredt[31:0] `endif));
+						$display("Cache misses = %0d", `IFU.mem_ctl.cachemisses[31:0]/8);
+
             $display("TEST_PASSED");
             $finish;
         end
@@ -425,10 +438,10 @@ module tb_top;
         $readmemh("program.hex",  lmem.mem);
         $readmemh("program.hex",  imem.mem);
         tp = $fopen("trace_port.csv","w");
-        el = $fopen("exec.log","w");
+//        el = $fopen("exec.log","w");
         $fwrite (el, "//   Cycle : #inst  hart   pc    opcode    reg=value   ; mnemonic\n");
         $fwrite (el, "//---------------------------------------------------------------\n");
-        fd = $fopen("console.log","w");
+//        fd = $fopen("console.log","w");
         commit_count = 0;
         preload_dccm();
         preload_iccm();

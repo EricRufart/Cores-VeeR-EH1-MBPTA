@@ -2470,6 +2470,7 @@ end : cam_array
    assign dec_takenbr = dec_takenbr_n & ~pre_takenbr_ff;
    assign dec_takenbr_nv_yet = i1_predict_t & ~dec_i1_decode_d & ~i0_predict_t & i1_valid_with_dependency_blocked;
 `endif
+
    // Put here the marvelous loop detector:
    loop_detector #(
     .ENTRIES(4)
