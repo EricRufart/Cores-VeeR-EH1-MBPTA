@@ -1452,36 +1452,55 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
          .en(ic_to_lock & ((ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit [2] | ic_wr_en[2]))),
          .din(1'b1),
          .dout(ic_tag_locked_out[2][32*i+j]));
+    rvdffsc #(1) ic_way3_lock (.*,
+				 .clear(release_locks),
+         .en(ic_to_lock & ((ic_rw_addr[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] == 32*i+j) && (ic_rd_hit [3] | ic_wr_en[3]))),
+         .din(1'b1),
+         .dout(ic_tag_locked_out[3][32*i+j]));
    end //LOCKED
 
-
+	logic [6:0] auxlock;
   always_comb begin : locked_out_mux
     valid_set = {ic_tag_valid_out[3][hashed_idx] ,ic_tag_valid_out[2][hashed_idx], ic_tag_valid_out[1][hashed_idx], ic_tag_valid_out[0][hashed_idx]};
-    sel_locked = {/*ic_tag_locked_out[3][hashed_idx]*/ 1'b0 ,ic_tag_locked_out[2][hashed_idx], ic_tag_locked_out[1][hashed_idx], ic_tag_locked_out[0][hashed_idx]};
+    sel_locked = {ic_tag_locked_out[3][hashed_idx] ,ic_tag_locked_out[2][hashed_idx], ic_tag_locked_out[1][hashed_idx], ic_tag_locked_out[0][hashed_idx]};
 		replace_way_mb_locked = replace_way_mb_randomized;
     replace_way_mb_any = '0;
     if (sel_mb_addr_ff & sel_mb_addr) begin
       replace_way_mb_any = wr_en_stalled;
-    end /*else if(replace_way_mb_locked != 4'b0000) begin 
-      if(valid_set != 4'b1111) begin
-        if(!valid_set[0]) begin
-          replace_way_mb_any = 4'b0001;
-        end else if(!valid_set[1]) begin
-          replace_way_mb_any = 4'b0010;
-        end  else if(!valid_set[2]) begin
-          replace_way_mb_any = 4'b0100;
-                end else begin
-          replace_way_mb_any = 4'b1000;
-        end
-      end*/ else if(replace_way_mb_locked[0]) begin
-          replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[1] & sel_locked[0], !sel_locked[0]  };
+    end else
+				`ifdef RV_FULL_LOCKING
+							auxlock=7'b000001;
+						if(replace_way_mb_locked[0]) begin
+							replace_way_mb_any[0] = !sel_locked[0];
+							replace_way_mb_any[1] = !sel_locked[1] & !replace_way_mb_any[0];
+							replace_way_mb_any[2] = !sel_locked[2] & !replace_way_mb_any[1];
+							replace_way_mb_any[3] = !sel_locked[3] & !replace_way_mb_any[2];
             end else if(replace_way_mb_locked[1]) begin
-          replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1],  !sel_locked[1], !sel_locked[0] & sel_locked[1] & sel_locked[2]};
-        end else if(replace_way_mb_locked[2]) begin
-          replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0],  !sel_locked[2], !sel_locked[1] & sel_locked[0] & sel_locked[2], sel_locked[2] & !sel_locked[0]};
-        end else if(replace_way_mb_locked[3]) begin
-          replace_way_mb_any = 4'b1000;
+							replace_way_mb_any[1] = !sel_locked[1];
+							replace_way_mb_any[2] = !sel_locked[2] & !replace_way_mb_any[1];
+							replace_way_mb_any[3] = !sel_locked[3] & !replace_way_mb_any[2];
+							replace_way_mb_any[0] = !sel_locked[0] & !replace_way_mb_any[3];
+		        end else if(replace_way_mb_locked[2]) begin
+							replace_way_mb_any[2] = !sel_locked[2];
+							replace_way_mb_any[3] = !sel_locked[3] & !replace_way_mb_any[2];
+							replace_way_mb_any[0] = !sel_locked[0] & !replace_way_mb_any[3];
+							replace_way_mb_any[1] = !sel_locked[1] & !replace_way_mb_any[0];
+        		end else if(replace_way_mb_locked[3]) begin
+							replace_way_mb_any[3] = !sel_locked[3];
+							replace_way_mb_any[0] = !sel_locked[0] & !replace_way_mb_any[3];
+							replace_way_mb_any[1] = !sel_locked[1] & !replace_way_mb_any[0];
+							replace_way_mb_any[2] = !sel_locked[2] & !replace_way_mb_any[1];
+				`else
+						if(replace_way_mb_locked[0]) begin
+          		replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[1] & sel_locked[0], !sel_locked[0]  };
+            end else if(replace_way_mb_locked[1]) begin
+          		replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1],  !sel_locked[1], !sel_locked[0] & sel_locked[1] & sel_locked[2]};
+		        end else if(replace_way_mb_locked[2]) begin
+    		      replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0],  !sel_locked[2], !sel_locked[1] & sel_locked[0] & sel_locked[2], sel_locked[2] & !sel_locked[0]};
+        		end else if(replace_way_mb_locked[3]) begin
+		          replace_way_mb_any = 4'b1000;
         //end
+				`endif
      end
   end
 
