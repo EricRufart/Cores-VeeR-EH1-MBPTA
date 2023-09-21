@@ -356,7 +356,7 @@ module ifu_mem_ctl
    logic                   ifc_region_acc_fault_final_f1, ifc_region_acc_fault_memory, ifc_region_acc_okay;
 
   logic [3:0] wr_en_stalled;	
-  logic [3:0] replace_way_mb_randomized;
+  logic [3:0] replace_way_mb_pre;
 `ifdef RV_ICACHE_LOCKING
   logic [3:0] sel_locked;
   logic [3:0] valid_set;
@@ -536,10 +536,10 @@ rvdffs #(4) ic_wren_copy (.*,
 		logic rst_ff;
 		logic[9:0] current_tag, imb_tag, imb_tag_ff;
 		always_ff @(posedge clk) rst_ff <= rst_l;
-		hash_cache_function_tag #(
+/*		hash_cache_function_tag #(
         .WORD_SIZE (ICACHE_TAG_HIGH-ICACHE_TAG_LOW)
-    )
-//		random_modulo6
+    )*/
+		random_modulo6
     inst_hcf (
         .*,
         .clk_i        (clk ),
@@ -561,33 +561,13 @@ rvdffs #(4) ic_wren_copy (.*,
     rvdffe #(10) imb_realtag_ff  (.*, .en(fetch_f1_f2_c1_clken), .din (imb_tag), .dout(imb_tag_ff));
     assign real_tag = ({10{ sel_mb_addr}}  &  imb_tag_ff)  |
                      ({10{~sel_mb_addr}}  &  current_tag)   ;
-    // Fetch a seed for the LFSR
-    logic[63:0] seed;
-`ifndef SYNTHESIS
-     longint rand_way_seed;
-     initial begin
-        if($value$plusargs("way_seed=%d", rand_way_seed)) begin
-            seed = rand_way_seed;
-        end else begin
-            seed = '0;
-        end
-     end 
-`else
-    // Not in sim, hardcide it to 0
-    assign seed = '0;
-`endif
-
-    // Randomize the way status using a LFSR
-		logic[1:0] lfsrout;
-    lfsr_prng #(2) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(lfsrout));
-		assign replace_way_mb_randomized[3:0] = { lfsrout[1] & lfsrout[0], lfsrout[1] & ~lfsrout[0], ~lfsrout[1] & lfsrout[1],  ~lfsrout[1] & ~lfsrout[0]};
 
 `else // No randomization
 
     assign imb_hash_in[31:1]     = imb_in;
     assign fetch_addr_f1_hashed[31:1] = fetch_addr_f1[31:1]; 
     assign way_status_mb_in[2:0] = ( miss_pending) ? way_status_mb_ff[2:0] : {way_status[2:0]} ;
-`endif
+`endif //RANDOM PLACEMENT
 
    assign tagv_mb_in[3:0]       = ( miss_pending) ? tagv_mb_ff[3:0]       : {ic_tag_valid[3:0]} ;
 
@@ -645,23 +625,44 @@ rvdffs #(4) ic_wren_copy (.*,
 //      /        \      /        \        ('x' means don't care       ('_' means unchanged)
 //    way_0    way_1  way_2     way_3      don't care)
 
-`ifndef RV_ICACHE_RANDOM_PLACEMENT
-   assign replace_way_mb_any[3] = ( way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
+`ifndef RV_ICACHE_RANDOM_REPLACEMENT
+   assign replace_way_mb_pre[3] = ( way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[3]& tagv_mb_ff[2] &  tagv_mb_ff[1] &  tagv_mb_ff[0]) ;
-   assign replace_way_mb_any[2] = (~way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
+   assign replace_way_mb_pre[2] = (~way_status_mb_ff[2]  & way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[2]& tagv_mb_ff[1] &  tagv_mb_ff[0]) ;
-   assign replace_way_mb_any[1] = ( way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
+   assign replace_way_mb_pre[1] = ( way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                   (~tagv_mb_ff[1]& tagv_mb_ff[0] ) ;
-   assign replace_way_mb_any[0] = (~way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
+   assign replace_way_mb_pre[0] = (~way_status_mb_ff[1] & ~way_status_mb_ff[0] & (&tagv_mb_ff[3:0])) |
                                  (~tagv_mb_ff[0] ) ;
 `else
+		// Fetch a seed for the LFSR
+    logic[63:0] seed;
+`ifndef SYNTHESIS
+     longint rand_way_seed;
+     initial begin
+        if($value$plusargs("way_seed=%d", rand_way_seed)) begin
+            seed = rand_way_seed;
+        end else begin
+            seed = '0;
+        end
+     end 
+`else
+    // Not in sim, hardcide it to 0
+    assign seed = '0;
+`endif //SYNTHESIS
+
+    // Randomize the way status using a LFSR
+		logic[1:0] lfsrout;
+    lfsr_prng #(2) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(lfsrout));
+		assign replace_way_mb_pre[3:0] = { lfsrout[1] & lfsrout[0], lfsrout[1] & ~lfsrout[0], ~lfsrout[1] & lfsrout[1],  ~lfsrout[1] & ~lfsrout[0]};
+			
 	`ifndef RV_ICACHE_LOCKING
 			`ifdef RV_ALWAYS_MISSING_CACHE
 					assign replace_way_mb_any = 4'b0001; 
 			`elsif RV_FAILING_LRU
 					assign replace_way_mb_any= 4'b0001;
 			`else
-					assign replace_way_mb_any = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : replace_way_mb_randomized;
+					assign replace_way_mb_any = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : replace_way_mb_pre;
 			`endif
 	`endif
 `endif
@@ -1432,8 +1433,12 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
 	
 	localparam C_SZ = $clog2(ICACHE_TAG_DEPTH*32);
 
+
+
+
+
 	logic [C_SZ-1:0] lockctr;
-	rvdffsc #(C_SZ) lockctrff (.*, .clear(release_locks), .en(ic_wr_en[0] | ic_wr_en[1] | ic_wr_en[2]), .din(lockctr + C_SZ'(1)), .dout(lockctr));	
+	rvdffsc #(C_SZ) lockctrff (.*, .clear(release_locks), .en(ic_wr_en[0] | ic_wr_en[1] | ic_wr_en[2] `ifdef RV_FULL_LOCKING	| ic_wr_en[3] `endif), .din(lockctr + C_SZ'(1)), .dout(lockctr));	
 	assign lockflush = lockctr[C_SZ-1]; 
 
   for (j=0 ; j< 32; j++) begin : LOCKED 
@@ -1459,17 +1464,19 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
          .dout(ic_tag_locked_out[3][32*i+j]));
    end //LOCKED
 
-	logic [6:0] auxlock;
+	logic [ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] lineidx;
+	assign lineidx = fetch_addr_f1_hashed[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW];
+
+
   always_comb begin : locked_out_mux
-    valid_set = {ic_tag_valid_out[3][hashed_idx] ,ic_tag_valid_out[2][hashed_idx], ic_tag_valid_out[1][hashed_idx], ic_tag_valid_out[0][hashed_idx]};
-    sel_locked = {ic_tag_locked_out[3][hashed_idx] ,ic_tag_locked_out[2][hashed_idx], ic_tag_locked_out[1][hashed_idx], ic_tag_locked_out[0][hashed_idx]};
-		replace_way_mb_locked = replace_way_mb_randomized;
+    valid_set = {ic_tag_valid_out[3][lineidx] ,ic_tag_valid_out[2][lineidx], ic_tag_valid_out[1][lineidx], ic_tag_valid_out[0][lineidx]};
+    sel_locked = {ic_tag_locked_out[3][lineidx] ,ic_tag_locked_out[2][lineidx], ic_tag_locked_out[1][lineidx], ic_tag_locked_out[0][lineidx]};
+		replace_way_mb_locked = replace_way_mb_pre;
     replace_way_mb_any = '0;
     if (sel_mb_addr_ff & sel_mb_addr) begin
       replace_way_mb_any = wr_en_stalled;
     end else
 				`ifdef RV_FULL_LOCKING
-							auxlock=7'b000001;
 						if(replace_way_mb_locked[0]) begin
 							replace_way_mb_any[0] = !sel_locked[0];
 							replace_way_mb_any[1] = !sel_locked[1] & !replace_way_mb_any[0];
@@ -1504,6 +1511,8 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
      end
   end
 
+`else
+  assign	replace_way_mb_any = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : replace_way_mb_pre;
 //assign ic_wr_en[3:0]   = (sel_mb_addr_ff & sel_mb_addr) ? wr_en_stalled : axi_ic_wr_en[3:0];
 `endif
 
