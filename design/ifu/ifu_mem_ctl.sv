@@ -448,7 +448,7 @@ module ifu_mem_ctl
       case (miss_state)
          IDLE: begin : idle
 								 miss_nxtstate = /*`ifdef RV_NO_MISPRED_CW spec_in ? MP_WAIT : `endif */(ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
-								 miss_state_en = ic_act_miss_f2 /*`ifdef RV_NO_MISPRED_CW | spec_in `endif*/; 
+								 miss_state_en = ic_act_miss_f2 `ifdef RV_NO_MISPRED_CW & !spec_in `endif; 
          end
 `ifdef RV_NO_MISPRED_CW
 				 MP_WAIT: begin : mp_wait
@@ -1479,24 +1479,24 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
 				`ifdef RV_FULL_LOCKING
 						if(replace_way_mb_locked[0]) begin
 							replace_way_mb_any[0] = !sel_locked[0];
-							replace_way_mb_any[1] = !sel_locked[1] & !replace_way_mb_any[0];
-							replace_way_mb_any[2] = !sel_locked[2] & !replace_way_mb_any[1];
-							replace_way_mb_any[3] = !sel_locked[3] & !replace_way_mb_any[2];
+							replace_way_mb_any[1] = sel_locked[1] & !replace_way_mb_any[0];
+							replace_way_mb_any[2] = sel_locked[2] & !replace_way_mb_any[1];
+							replace_way_mb_any[3] = sel_locked[3] & !replace_way_mb_any[2];
             end else if(replace_way_mb_locked[1]) begin
 							replace_way_mb_any[1] = !sel_locked[1];
-							replace_way_mb_any[2] = !sel_locked[2] & !replace_way_mb_any[1];
-							replace_way_mb_any[3] = !sel_locked[3] & !replace_way_mb_any[2];
-							replace_way_mb_any[0] = !sel_locked[0] & !replace_way_mb_any[3];
+							replace_way_mb_any[2] = sel_locked[2] & !replace_way_mb_any[1];
+							replace_way_mb_any[3] = sel_locked[3] & !replace_way_mb_any[2];
+							replace_way_mb_any[0] = sel_locked[0] & !replace_way_mb_any[3];
 		        end else if(replace_way_mb_locked[2]) begin
 							replace_way_mb_any[2] = !sel_locked[2];
-							replace_way_mb_any[3] = !sel_locked[3] & !replace_way_mb_any[2];
-							replace_way_mb_any[0] = !sel_locked[0] & !replace_way_mb_any[3];
-							replace_way_mb_any[1] = !sel_locked[1] & !replace_way_mb_any[0];
+							replace_way_mb_any[3] = sel_locked[3] & !replace_way_mb_any[2];
+							replace_way_mb_any[0] = sel_locked[0] & !replace_way_mb_any[3];
+							replace_way_mb_any[1] = sel_locked[1] & !replace_way_mb_any[0];
         		end else if(replace_way_mb_locked[3]) begin
 							replace_way_mb_any[3] = !sel_locked[3];
-							replace_way_mb_any[0] = !sel_locked[0] & !replace_way_mb_any[3];
-							replace_way_mb_any[1] = !sel_locked[1] & !replace_way_mb_any[0];
-							replace_way_mb_any[2] = !sel_locked[2] & !replace_way_mb_any[1];
+							replace_way_mb_any[0] = sel_locked[0] & !replace_way_mb_any[3];
+							replace_way_mb_any[1] = sel_locked[1] & !replace_way_mb_any[0];
+							replace_way_mb_any[2] = sel_locked[2] & !replace_way_mb_any[1];
 				`else
 						if(replace_way_mb_locked[0]) begin
           		replace_way_mb_any = {sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[2] & sel_locked[1] & sel_locked[0], !sel_locked[1] & sel_locked[0], !sel_locked[0]  };
