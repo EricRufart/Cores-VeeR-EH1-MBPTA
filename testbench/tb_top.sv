@@ -437,11 +437,11 @@ module tb_top;
 
         $readmemh("program.hex",  lmem.mem);
         $readmemh("program.hex",  imem.mem);
-        tp = $fopen("trace_port.csv","w");
-        el = $fopen("exec.log","w");
-        $fwrite (el, "//   Cycle : #inst  hart   pc    opcode    reg=value   ; mnemonic\n");
-        $fwrite (el, "//---------------------------------------------------------------\n");
-        fd = $fopen("console.log","w");
+//        tp = $fopen("trace_port.csv","w");
+//        el = $fopen("exec.log","w");
+//        $fwrite (el, "//   Cycle : #inst  hart   pc    opcode    reg=value   ; mnemonic\n");
+//        $fwrite (el, "//---------------------------------------------------------------\n");
+//        fd = $fopen("console.log","w");
         commit_count = 0;
         preload_dccm();
         preload_iccm();
