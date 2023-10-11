@@ -196,7 +196,7 @@ module ifu_mem_ctl
 	 input logic 				mispred_conf,
 	 input logic 				mispred_valid,
 	 input logic [31:1] mispred_pc,
-
+	 output logic 			spec_in,
 `endif
 
 
@@ -448,7 +448,7 @@ module ifu_mem_ctl
       case (miss_state)
          IDLE: begin : idle
 								 miss_nxtstate = /*`ifdef RV_NO_MISPRED_CW spec_in ? MP_WAIT : `endif */(ic_act_miss_f2 & ~exu_flush_final & ~dec_takenbr) ? CRIT_BYP_OK : HIT_U_MISS ;
-								 miss_state_en = ic_act_miss_f2 `ifdef RV_NO_MISPRED_CW & !spec_in `endif; 
+								 miss_state_en = ic_act_miss_f2 /*`ifdef RV_NO_MISPRED_CW & !spec_in `endif*/; 
          end
 `ifdef RV_NO_MISPRED_CW
 				 MP_WAIT: begin : mp_wait
@@ -1152,7 +1152,7 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 `ifdef RV_NO_MISPRED_CW
-	 	logic spec_chambered, spec_in;
+	 	logic spec_chambered;//, spec_in;
 	 	logic[31:1] spec_chambered_pc;
 		assign spec_in = (spec_taken | (spec_chambered & !(mispred_valid & (spec_chambered_pc == mispred_pc)))) & !exu_flush_final;
 		rvdff #(1)  specchamb (.*, .clk(active_clk), .din (spec_in), .dout(spec_chambered));
@@ -1163,7 +1163,7 @@ assign axi_ifu_bus_clk_en =  ifu_bus_clk_en ;
    assign    ifu_axi_arvalid                 = ifc_axi_ic_req_ff2 ;
    assign    ifu_axi_arid[IFU_BUS_TAG-1:0]   = IFU_BUS_TAG'(axi_rd_addr_count[2:0]);
    assign    ifu_axi_araddr[31:0]            = {ifu_ic_req_addr_f2[31:3],3'b0};
-	 assign    ifu_axi_rready                  = `ifdef RV_NO_MISPRED_CW spec_in ? 1'b0 :`endif 1'b1;
+	 assign    ifu_axi_rready                  = /*`ifdef RV_NO_MISPRED_CW spec_in ? 1'b0 :`endif*/ 1'b1;
    assign    ifu_axi_arsize[2:0]             = 3'b011;
    assign    ifu_axi_arcache[3:0]            = 4'b1111;
    assign    ifu_axi_arprot[2:0]             = 3'b100;
@@ -1438,7 +1438,7 @@ assign ifu_ic_rw_int_addr_w_debug[ICACHE_TAG_HIGH-1:ICACHE_TAG_LOW] = ((ic_debug
 
 
 	logic [C_SZ-1:0] lockctr;
-	rvdffsc #(C_SZ) lockctrff (.*, .clear(release_locks), .en(ic_wr_en[0] | ic_wr_en[1] | ic_wr_en[2] `ifdef RV_FULL_LOCKING	| ic_wr_en[3] `endif), .din(lockctr + C_SZ'(1)), .dout(lockctr));	
+	rvdffsc #(C_SZ) lockctrff (.*, .clear(release_locks), .en(ic_wr_en[0] | ic_wr_en[1] | ic_wr_en[2] `ifdef RV_FULL_LOCKING	| ic_wr_en[3] `endif), .din(lockctr + C_SZ'(1)), .dout(lockctr));	//CAMBIAR A SEL_LOCKED a 0 y wr o rd
 	assign lockflush = lockctr[C_SZ-1]; 
 
   for (j=0 ; j< 32; j++) begin : LOCKED 

@@ -274,7 +274,7 @@ module ifu
    logic        ifc_region_acc_fault_f1;
    logic [7:0]  ic_access_fault_f2;
    logic        ifu_ic_mb_empty;
-
+	 logic				spec_in;
 
    logic ic_hit_f2;
 

@@ -51,7 +51,7 @@ module exu_div_mbpta_ctl
 	logic [31:0] out_value;
 	logic [31:0] out_value_ff;
 
-	localparam NUMBERCYCLES = 6'h24; // 22 3F
+	localparam NUMBERCYCLES = 6'h24;
 
 	// launch the division and capture the finish value
 	exu_div_ctl div_e1    (.*,

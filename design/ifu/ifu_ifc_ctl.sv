@@ -58,6 +58,9 @@ module ifu_ifc_ctl
 `ifdef RV_NO_BRANCHPRED
   	input logic end_branch_stall,
 `endif
+`ifdef RV_NO_MISPRED_CW
+		input logic spec_in,
+`endif
    output logic [31:1] ifc_fetch_addr_f1, // fetch addr F1
    output logic [31:1] ifc_fetch_addr_f2,  // fetch addr F2
 
@@ -144,12 +147,16 @@ module ifu_ifc_ctl
    // - flush
    // - Miss *or* flush during WFM (icache miss buffer is blocking)
    // - Sequential
+	 `ifdef RV_NO_MISPRED_CW
+			logic pred_waiting, pred_conf_wait;
+			rvdff #(1) pcwff (.*, .din((sel_btb_addr_bf & spec_in) | (spec_in & pred_waiting)), .dout(pred_waiting));
+			assign pred_conf_wait = pred_waiting & spec_in;
+	 `endif
 
-
-	 assign sel_last_addr_bf = ~miss_sel_flush & ~ifc_fetch_req_f1 & ifc_fetch_req_f2 & ~ifu_bp_kill_next_f2;
-   assign sel_miss_addr_bf = ~miss_sel_flush & ~ifu_bp_kill_next_f2 & ~ifc_fetch_req_f1 & ~ifc_fetch_req_f2;
-   assign sel_btb_addr_bf  = ~miss_sel_flush & ifu_bp_kill_next_f2;
-   assign sel_next_addr_bf = ~miss_sel_flush & ifc_fetch_req_f1;
+	 assign sel_last_addr_bf = ~miss_sel_flush & ~ifc_fetch_req_f1 & ifc_fetch_req_f2 & ~ifu_bp_kill_next_f2 `ifdef RV_NO_MISPRED_CW | pred_conf_wait `endif;
+   assign sel_miss_addr_bf = ~miss_sel_flush & ~ifu_bp_kill_next_f2 & ~ifc_fetch_req_f1 & ~ifc_fetch_req_f2 `ifdef RV_NO_MISPRED_CW & ~pred_conf_wait `endif;
+   assign sel_btb_addr_bf  = ~miss_sel_flush & ifu_bp_kill_next_f2 `ifdef RV_NO_MISPRED_CW & ~pred_conf_wait `endif;
+   assign sel_next_addr_bf = ~miss_sel_flush & ifc_fetch_req_f1 `ifdef RV_NO_MISPRED_CW & ~pred_conf_wait `endif;
 
    assign fetch_addr_bf[31:1] = ( ({31{miss_sel_flush}} &  exu_flush_path_final[31:1]) | // FLUSH path
                                    ({31{sel_miss_addr_bf}} & miss_addr[31:1]) | // MISS path
@@ -251,6 +258,7 @@ module ifu_ifc_ctl
                                ~(fb_full_f1 & ~(ifu_fb_consume2 | ifu_fb_consume1 | exu_flush_final)) &
                                ~dma_stall &
                                ~ic_write_stall &
+															 `ifdef RV_NO_MISPRED_CW ~pred_conf_wait & `endif
                                ~dec_tlu_flush_noredir_wb);
 	 `endif
    // kill F2 request if we flush or if the prior fetch missed the cache/mem

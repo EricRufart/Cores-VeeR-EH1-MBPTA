@@ -2432,7 +2432,7 @@ end : cam_array
                      );
 
 `ifdef RV_STATIC_BRANCHPRED
-    logic [31:1] takenbr_pc, takenbr_path_n, last_pc, last_pc_ff;
+    logic [31:1] takenbr_pc, takenbr_path_n, takenbr_path_ff, last_pc, last_pc_ff;
     logic [12:1] takenbr_immed;
     logic dec_takenbr_n, dec_takenbr_ff, takenbr_path_en, taken_is_call, was_call_ff;
     logic i1_valid_with_dependency_blocked, pre_takenbr_ff;
@@ -2460,7 +2460,8 @@ end : cam_array
    rvdff  #(1)  takenbrff (.*, .clk(active_clk), .din(dec_takenbr_n),  .dout(dec_takenbr_ff) );
    rvdff  #(1)  pretakenbrff (.*, .clk(active_clk), .din(dec_takenbr_n & ~i0_predict_t & (i1_block_d & i1_valid_with_dependency_blocked)),  .dout(pre_takenbr_ff) );
    rvdff  #(1)  callff (.*, .clk(active_clk), .din(taken_is_call),  .dout(was_call_ff) );
-//   rvdffs #(31) taken_targetff (.*, .clk(active_clk), .en(takenbr_path_en), .din(takenbr_path_n),  .dout(dec_takenbr_path) );
+//   rvdff  #(31) taken_targetff (.*, .clk(active_clk), .din(takenbr_path_n),  .dout(dec_takenbr_path) );
+   rvdff  #(31) taken_targetff (.*, .clk(active_clk), .din(dec_takenbr_path),  .dout(takenbr_path_ff) );
 	 assign dec_takenbr_path = takenbr_path_n;
    rvdff  #(31) taken_pcff (.*, .clk(active_clk), .din(last_pc),  .dout(last_pc_ff) );
 `ifdef RV_NO_BRANCHPRED
