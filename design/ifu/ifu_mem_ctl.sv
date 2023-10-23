@@ -654,7 +654,7 @@ rvdffs #(4) ic_wren_copy (.*,
     // Randomize the way status using a LFSR
 		logic[1:0] lfsrout;
     lfsr_prng #(2) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(lfsrout));
-		assign replace_way_mb_pre[3:0] = { lfsrout[1] & lfsrout[0], lfsrout[1] & ~lfsrout[0], ~lfsrout[1] & lfsrout[1],  ~lfsrout[1] & ~lfsrout[0]};
+		assign replace_way_mb_pre[3:0] = { lfsrout[1] & lfsrout[0], lfsrout[1] & ~lfsrout[0], ~lfsrout[1] & lfsrout[0],  ~lfsrout[1] & ~lfsrout[0]};
 			
 	`ifndef RV_ICACHE_LOCKING
 			`ifdef RV_ALWAYS_MISSING_CACHE
