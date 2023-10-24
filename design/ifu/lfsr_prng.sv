@@ -27,14 +27,14 @@ module lfsr_prng
     ) (
         input  logic            clk ,
         input  logic            rst_l,
-        input  logic [63:0]     seed_i,
+        input  logic [31:0]     seed_i,
         output logic [SIZE-1:0] output_number_o
     );
 
     // 64-bit XNOR LFSR (0 is a valid state)
     // Taps from: https://docs.xilinx.com/v/u/en-US/xapp052
     // taps = 64,63,61,60
-    logic [63:0] lfsr, lfsr_next;
+    logic [31:0] lfsr, lfsr_next;
     logic newbit;
 
     always_ff @(posedge clk or negedge rst_l) begin
@@ -44,8 +44,8 @@ module lfsr_prng
           lfsr <= lfsr_next;
     end
 
-    assign newbit          = ~(lfsr[63] ^ lfsr[62] ^ lfsr[60] ^ lfsr[59]);
-    assign lfsr_next       =  {lfsr[62:0], newbit};
+    assign newbit          = ~(lfsr[31] ^ lfsr[23] ^ lfsr[15] ^ lfsr[7]);
+    assign lfsr_next       =  {lfsr[30:0], newbit};
     assign output_number_o = lfsr[SIZE-1:0];
 
 endmodule
