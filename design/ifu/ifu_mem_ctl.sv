@@ -636,9 +636,9 @@ rvdffs #(4) ic_wren_copy (.*,
                                  (~tagv_mb_ff[0] ) ;
 `else
 		// Fetch a seed for the LFSR
-    logic[31:0] seed;
+    logic[63:0] seed;
 `ifndef SYNTHESIS
-     int rand_way_seed;
+     longint rand_way_seed;
      initial begin
         if($value$plusargs("way_seed=%d", rand_way_seed)) begin
             seed = rand_way_seed;
@@ -653,7 +653,9 @@ rvdffs #(4) ic_wren_copy (.*,
 
     // Randomize the way status using a LFSR
 		logic[1:0] lfsrout;
-    lfsr_prng #(2) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(lfsrout));
+		logic[7:0] lfsrlong;
+    lfsr_prng #(8) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(lfsrlong));
+		assign lfsrout = {lfsrlong[7], lfsrlong[0]};
 		assign replace_way_mb_pre[3:0] = { lfsrout[1] & lfsrout[0], lfsrout[1] & ~lfsrout[0], ~lfsrout[1] & lfsrout[0],  ~lfsrout[1] & ~lfsrout[0]};
 			
 	`ifndef RV_ICACHE_LOCKING
