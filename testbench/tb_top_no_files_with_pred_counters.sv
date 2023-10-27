@@ -355,6 +355,7 @@ module tb_top;
 						$display("Mispred taken = %0d", `EXU.i0_alu_e1.mispredt[31:0] + `EXU.i1_alu_e1.mispredt[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.mispredt[31:0] + `EXU.i1_alu_e4.mispredt[31:0] `endif);
 						$display("Mispred nottaken = %0d", `EXU.i0_alu_e1.mispred[31:0] + `EXU.i1_alu_e1.mispred[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.mispred[31:0] + `EXU.i1_alu_e4.mispred[31:0] `endif - (`EXU.i0_alu_e1.mispredt[31:0] + `EXU.i1_alu_e1.mispredt[31:0] `ifndef RV_NO_SECONDARY_ALU + `EXU.i0_alu_e4.mispredt[31:0] + `EXU.i1_alu_e4.mispredt[31:0] `endif));
 						$display("Cache writes = %0d", `IFU.mem_ctl.cachemisses[31:0]/8);
+						$display("Div instructions = %0d  Div cycles = %0d", `EXU.div_e1.div_inst[31:0], `EXU.div_e1.div_cycle[31:0]);
 
             $display("TEST_PASSED");
             $finish;

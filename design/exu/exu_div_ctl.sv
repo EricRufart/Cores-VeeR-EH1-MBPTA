@@ -71,6 +71,9 @@ module exu_div_ctl
    logic         m_already_comp;
 
 
+	 logic [31:0] div_inst, div_cycle;
+   rvdffe #(32) divinstff         (.*, .en(finish),    .din(div_inst+1), .dout(div_inst));
+   rvdffe #(32) divcycleff        (.*, .en(run_state), .din(div_cycle+1), .dout(div_cycle));
 
    rvdff  #(1)  flush_any_ff      (.*, .clk(active_clk), .din(flush_lower),                                .dout(flush_lower_ff));
    rvdff  #(1)  e1val_ff          (.*, .clk(active_clk), .din(dp.valid & ~flush_lower_ff),                 .dout(valid_ff_e1));
@@ -250,7 +253,7 @@ module exu_div_ctl
    // *** End   Short Q *** }}
 
 
-
+		
 
 
    assign div_stall               =  run_state;

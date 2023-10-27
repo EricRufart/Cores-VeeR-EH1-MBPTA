@@ -50,8 +50,12 @@ module exu_div_mbpta_ctl
 	logic 	finished_ff;
 	logic [31:0] out_value;
 	logic [31:0] out_value_ff;
+	logic [31:0] div_inst, div_cycle;
+  rvdffe #(32) divinstff         (.*, .en(finish),    .din(div_inst+1), .dout(div_inst));
+  rvdffe #(32) divcycleff        (.*, .en(running | dp.valid==1'b1), .din(div_cycle+1), .dout(div_cycle));
 
-	localparam NUMBERCYCLES = 6'h24;
+
+	localparam NUMBERCYCLES = 6'h22;
 
 	// launch the division and capture the finish value
 	exu_div_ctl div_e1    (.*,
@@ -70,7 +74,7 @@ module exu_div_mbpta_ctl
 	assign counter = (running == 1'b1 || dp.valid == 1'b1) ? counter_ff + 1 : 6'b000000;
 	// update running If counter is 24 (36 iterations) and running set to 1 -> set running to 0 (Stop) else if is running continue
 	
-	assign running = div_stall_out || running_ff && (counter_ff != NUMBERCYCLES);
+	assign running = (div_stall_out || running_ff & (counter_ff != NUMBERCYCLES)) & ~flush_lower;
 //	assign running = counter == NUMBERCYCLES && running_ff ? 0'b0 : running_ff == 1'b1 ? 1'b1 : div_stall_out == 1'b1 ? 1'b1 : 1'b0;
 	
 	//assign running = counter == 6'h24 ? 0'b0 : running_ff == 1'b1 ? running_ff : 1'b1;
@@ -78,7 +82,7 @@ module exu_div_mbpta_ctl
 	//assign finish = finish_out;
 	//assign finish_early = finish_early_out;
 	assign finish_early = 1'b0;
-	assign finish = (counter == NUMBERCYCLES) && running_ff;
+	assign finish = (counter == NUMBERCYCLES) & ~flush_lower;
 	//	assign out = counter == NUMBERCYCLES ? out_value : out_value_ff;
 	assign div_stall = running;
 	//assign div_stall = div_stall_out;
