@@ -35,8 +35,8 @@ module ifu_bp_ctl
 
    input logic ic_hit_f2,      // Icache hit, enables F2 address capture
 
-   input logic [31:1] ifc_fetch_addr_f1, // look up btb address
-   input logic [31:1] ifc_fetch_addr_f2, // to tgt calc
+   input logic [31:1] ifc_fetch_addr_f1_i, // look up btb address
+   input logic [31:1] ifc_fetch_addr_f2_i, // to tgt calc
    input logic ifc_fetch_req_f1,  // F1 valid
    input logic ifc_fetch_req_f2,  // F2 valid
 
@@ -62,10 +62,10 @@ module ifu_bp_ctl
    input rets_pkt_t exu_rets_e4_pkt, // EX4 rets packet
 
 `ifdef REAL_COMM_RS
-   input logic [31:1] exu_i0_pc_e1, // Used for RS computation
-   input logic [31:1] exu_i1_pc_e1, // Used for RS computation
-   input logic [31:1] dec_tlu_i0_pc_e4,  // Used for RS computation
-   input logic [31:1] dec_tlu_i1_pc_e4,  // Used for RS computation
+   input logic [31:1] exu_i0_pc_e1_i, // Used for RS computation
+   input logic [31:1] exu_i1_pc_e1_i, // Used for RS computation
+   input logic [31:1] dec_tlu_i0_pc_e4_i,  // Used for RS computation
+   input logic [31:1] dec_tlu_i1_pc_e4_i,  // Used for RS computation
 `endif
 
    input logic [`RV_BHT_GHR_RANGE] exu_mp_eghr, // execute ghr (for patching fghr)
@@ -255,6 +255,34 @@ module ifu_bp_ctl
     logic [1:0]                                  bht_bank5_rd_data_f2 ;
     logic [1:0]                                  bht_bank6_rd_data_f2 ;
     logic [1:0]                                  bht_bank7_rd_data_f2 ;
+
+
+   logic [31:1] ifc_fetch_addr_f1, ifc_fetch_addr_f2;
+
+`ifndef RV_RANDOMIZED_BTB
+
+   assign ifc_fetch_addr_f1 = ifc_fetch_addr_f1_i;
+	 assign ifc_fetch_addr_f2 = ifc_fetch_addr_f2_i;
+
+`else
+		hash_same_size #(.SIZE (31))	faf1hash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (ifc_fetch_addr_f1_i),
+        .line_index_o (ifc_fetch_addr_f1)
+    );
+
+		hash_same_size #(.SIZE (31)) faf2hash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (ifc_fetch_addr_f2_i),
+        .line_index_o (ifc_fetch_addr_f2)
+    );
+`endif
+
+
 
    assign exu_mp_valid = exu_mp_pkt.misp & ~leak_one_f2; // conditional branch mispredict
    assign exu_mp_boffset = exu_mp_pkt.boffset;  // branch offset
