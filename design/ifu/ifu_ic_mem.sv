@@ -668,9 +668,9 @@ module hash_same_size #(
     reg [SIZE-1:0] rotate_5;
     reg [SIZE-1:0] rotate_6;
     reg [SIZE-1:0] rotate_7;
-    wire [SIZE*8-1:0] combined;
-    wire [SIZE*4-1:0] output_xor_1;
-    wire [SIZE*2-1:0] output_xor_2;
+    wire [SIZE8-1:0] combined;
+    wire [SIZE4-1:0] output_xor_1;
+    wire [SIZE2-1:0] output_xor_2;
     wire [SIZE  -1:0] output_xor_3;
     
     five_rotator #(SIZE) r1 (.num(addr_i), 										.shift(random_number_w[4:0]), 	.rotated(rotate_0));
@@ -681,13 +681,15 @@ module hash_same_size #(
     five_rotator #(SIZE) r6 (.num(random_number_w[SIZE-1:0]), .shift(addr_i[10:6]), 					.rotated(rotate_5));
     five_rotator #(SIZE) r7 (.num(random_number_w[SIZE-1:0]), .shift(addr_i[15:11]), 					.rotated(rotate_6));
     five_rotator #(SIZE) r8 (.num(random_number_w[SIZE-1:0]), .shift(addr_i[20:16]), 					.rotated(rotate_7));
-		
-		assign combined = {rotate_0[30:0], rotate_1[30:0], rotate_2[30:0], rotate_3[30:0], rotate_4[30:0], rotate_5[30:0], rotate_6[30:0], rotate_7[30:0]};
-    assign output_xor_1 = combined[247:124] ^ combined[123:0];
-    assign output_xor_2 = output_xor_1[123:62] ^ output_xor_1[61:0];
-    assign output_xor_3 = output_xor_2[61:31] ^ output_xor_2[30:0];
+		localparam SIZE2 = SIZE*2;
+		localparam SIZE4 = SIZE*4;
+		localparam SIZE8 = SIZE*8;
+		assign combined = {rotate_0[SIZE-1:0], rotate_1[SIZE-1:0], rotate_2[SIZE-1:0], rotate_3[SIZE-1:0], rotate_4[SIZE-1:0], rotate_5[SIZE-1:0], rotate_6[SIZE-1:0], rotate_7[SIZE-1:0]};
+    assign output_xor_1 = combined[SIZE8-1:SIZE4] ^ combined[SIZE4-1:0];
+    assign output_xor_2 = output_xor_1[SIZE4-1:SIZE2] ^ output_xor_1[SIZE2-1:0];
+    assign output_xor_3 = output_xor_2[SIZE2-1:SIZE] ^ output_xor_2[SIZE-1:0];
 
-    assign line_index_o = output_xor_3[30:0];
+    assign line_index_o = output_xor_3[SIZE-1:0];
 
     
 endmodule 

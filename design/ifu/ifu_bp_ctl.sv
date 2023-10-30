@@ -265,6 +265,25 @@ module ifu_bp_ctl
 	 assign ifc_fetch_addr_f2 = ifc_fetch_addr_f2_i;
 
 `else
+			hash_same_size #(.SIZE (31))	faf1hash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (ifc_fetch_addr_f1_i[31:1]),
+        .line_index_o (ifc_fetch_addr_f1[31:1])
+    );
+
+		hash_same_size #(.SIZE (31)) faf2hash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (ifc_fetch_addr_f2_i[31:1]),
+        .line_index_o (ifc_fetch_addr_f2[31:1])
+    );
+//   assign ifc_fetch_addr_f1[5:1] = ifc_fetch_addr_f1_i[5:1];
+//	 assign ifc_fetch_addr_f2[5:1] = ifc_fetch_addr_f2_i[5:1];
+
+/*		
 		hash_same_size #(.SIZE (31))	faf1hash (
         .*,
         .clk_i        (active_clk),
@@ -279,7 +298,7 @@ module ifu_bp_ctl
         .randomize_i  (1'b0),
         .addr_i       (ifc_fetch_addr_f2_i),
         .line_index_o (ifc_fetch_addr_f2)
-    );
+    );*/
 `endif
 
 
