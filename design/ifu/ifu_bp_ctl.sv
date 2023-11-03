@@ -258,11 +258,14 @@ module ifu_bp_ctl
 
 
    logic [31:1] ifc_fetch_addr_f1, ifc_fetch_addr_f2;
+   logic [31:1] ifc_fetch_addr_f1h, ifc_fetch_addr_f2h;
 
 `ifndef RV_RANDOMIZED_BTB
 
    assign ifc_fetch_addr_f1 = ifc_fetch_addr_f1_i;
 	 assign ifc_fetch_addr_f2 = ifc_fetch_addr_f2_i;
+   assign ifc_fetch_addr_f1h = ifc_fetch_addr_f1_i;
+	 assign ifc_fetch_addr_f2h = ifc_fetch_addr_f2_i;
 
 `else
 			hash_same_size #(.SIZE (31))	faf1hash (
@@ -270,7 +273,7 @@ module ifu_bp_ctl
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
         .addr_i       (ifc_fetch_addr_f1_i[31:1]),
-        .line_index_o (ifc_fetch_addr_f1[31:1])
+        .line_index_o (ifc_fetch_addr_f1h[31:1])
     );
 
 		hash_same_size #(.SIZE (31)) faf2hash (
@@ -278,10 +281,11 @@ module ifu_bp_ctl
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
         .addr_i       (ifc_fetch_addr_f2_i[31:1]),
-        .line_index_o (ifc_fetch_addr_f2[31:1])
+        .line_index_o (ifc_fetch_addr_f2h[31:1])
     );
-//   assign ifc_fetch_addr_f1[5:1] = ifc_fetch_addr_f1_i[5:1];
-//	 assign ifc_fetch_addr_f2[5:1] = ifc_fetch_addr_f2_i[5:1];
+   assign ifc_fetch_addr_f1 = ifc_fetch_addr_f1_i;
+	 assign ifc_fetch_addr_f2 = ifc_fetch_addr_f2_i;
+
 
 /*		
 		hash_same_size #(.SIZE (31))	faf1hash (
@@ -299,6 +303,7 @@ module ifu_bp_ctl
         .addr_i       (ifc_fetch_addr_f2_i),
         .line_index_o (ifc_fetch_addr_f2)
     );*/
+
 `endif
 
 
@@ -347,8 +352,8 @@ module ifu_bp_ctl
 
 
    // hash the incoming fetch PC, first guess at hashing algorithm
-   rvbtb_addr_hash f1hash(.pc(ifc_fetch_addr_f1[31:1]), .hash(btb_rd_addr_f1[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
-   rvbtb_addr_hash f2hash(.pc(ifc_fetch_addr_f2[31:1]), .hash(btb_rd_addr_f2[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
+   rvbtb_addr_hash f1hash(.pc(ifc_fetch_addr_f1h[31:1]), .hash(btb_rd_addr_f1[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
+   rvbtb_addr_hash f2hash(.pc(ifc_fetch_addr_f2h[31:1]), .hash(btb_rd_addr_f2[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
 
 
    // based on the fetch group offset(PC[3:2]) and direction bits, findfirst from fetchPC

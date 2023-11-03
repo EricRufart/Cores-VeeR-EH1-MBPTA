@@ -979,10 +979,50 @@ module ifu_aln_ctl
 
    // if you detect br does not start on instruction boundary
 
-   rvbtb_addr_hash firsthash(.pc(firstpc[31:1]), .hash(firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
-   rvbtb_addr_hash secondhash(.pc(secondpc[31:1]), .hash(secondpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
-   rvbtb_addr_hash thirdhash(.pc(thirdpc[31:1]), .hash(thirdpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
-   rvbtb_addr_hash fourthhash(.pc(fourthpc[31:1]), .hash(fourthpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
+logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
+`ifndef RV_RANDOMIZED_BTB
+
+	assign firstpcrand  = firstpc; 
+	assign secondpcrand = secondpc; 
+	assign thirdpcrand  = thirdpc; 
+	assign fourthpcrand = fourthpc; 
+
+`else
+			hash_same_size #(.SIZE (31))	f1pchash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (firstpc[31:1]),
+        .line_index_o (firstpcrand[31:1])
+    );
+			hash_same_size #(.SIZE (31))	f2pchash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (secondpc[31:1]),
+        .line_index_o (secondpcrand[31:1])
+    );
+			hash_same_size #(.SIZE (31))	f3pchash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (thirdpc[31:1]),
+        .line_index_o (thirdpcrand[31:1])
+    );
+			hash_same_size #(.SIZE (31))	f4pchash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (fourthpc[31:1]),
+        .line_index_o (fourthpcrand[31:1])
+    );
+
+`endif
+
+   rvbtb_addr_hash firsthash(.pc(firstpcrand[31:1]), .hash(firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
+   rvbtb_addr_hash secondhash(.pc(secondpcrand[31:1]), .hash(secondpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
+   rvbtb_addr_hash thirdhash(.pc(thirdpcrand[31:1]), .hash(thirdpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
+   rvbtb_addr_hash fourthhash(.pc(fourthpcrand[31:1]), .hash(fourthpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
 
    logic [`RV_BTB_BTAG_SIZE-1:0] firstbrtag_hash, secondbrtag_hash, thirdbrtag_hash, fourthbrtag_hash;
 
@@ -1031,11 +1071,10 @@ module ifu_aln_ctl
 
       i0_brp.br_start_error = i0_br_start_error;
 
-      i0_brp.index[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO] = (first2B | alignbrend[0]) ? firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]:
-                                                                                  secondpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO];
+			i0_brp.index[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO] = (first2B | alignbrend[0]) ? firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]:
+																																				secondpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO];
 
-      i0_brp.btag[`RV_BTB_BTAG_SIZE-1:0] = (first2B | alignbrend[0]) ? firstbrtag_hash[`RV_BTB_BTAG_SIZE-1:0]:
-                                                                       secondbrtag_hash[`RV_BTB_BTAG_SIZE-1:0];
+      i0_brp.btag[`RV_BTB_BTAG_SIZE-1:0] = firstbrtag_hash[`RV_BTB_BTAG_SIZE-1:0];
 
       i0_brp.bank[1:0] = (first2B | alignbrend[0]) ? firstpc[3:2] :
                                                      secondpc[3:2];
