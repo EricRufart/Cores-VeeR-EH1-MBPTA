@@ -326,12 +326,6 @@ module ifu
 
    // branch predictor
    ifu_bp_ctl bp (.*, 
-					 `ifdef REAL_COMM_RS
-						.exu_i0_pc_e1_i(exu_i0_pc_e1), 
-  					.exu_i1_pc_e1_i(exu_i1_pc_e1), 
-  					.dec_tlu_i0_pc_e4_i(dec_tlu_i0_pc_e4), 
-  					.dec_tlu_i1_pc_e4_i(dec_tlu_i1_pc_e4)
-					 `endif
 	 					.ifc_fetch_addr_f1_i(ifc_fetch_addr_f1), 
 	 					.ifc_fetch_addr_f2_i(ifc_fetch_addr_f2) 
 

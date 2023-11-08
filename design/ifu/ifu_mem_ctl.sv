@@ -656,7 +656,7 @@ rvdffs #(4) ic_wren_copy (.*,
 		logic[7:0] lfsrlong;
     lfsr_prng #(8) lfsr (.*, .seed_i(seed), .clk(free_clk), .output_number_o(lfsrlong));
 		assign lfsrout = {lfsrlong[7], lfsrlong[0]};
-		assign replace_way_mb_pre[3:0] = { lfsrout[1] & lfsrout[0], lfsrout[1] & ~lfsrout[0], ~lfsrout[1] & lfsrout[0],  ~lfsrout[1] & ~lfsrout[0]};
+		assign replace_way_mb_pre[3:0] = decode2_4(lfsrout);
 			
 	`ifndef RV_ICACHE_LOCKING
 			`ifdef RV_ALWAYS_MISSING_CACHE
@@ -1758,5 +1758,17 @@ rvdff #(1) ifu_debug_valid_ff (.*, .clk(free_clk),
    assert_perr_one_z_hot: assert #0 ($onehot0({ifu_icache_error_val,ifu_icache_sb_error_val}));
 
 `endif
+
+   function [3:0] decode2_4;
+      input [1:0] in;
+
+      decode2_4[3] =  in[1] &  in[0];
+      decode2_4[2] =  in[1] & ~in[0];
+      decode2_4[1] = ~in[1] &  in[0];
+      decode2_4[0] = ~in[1] & ~in[0];
+
+   endfunction
+
+
 
 endmodule  // ifu_mem_ctl

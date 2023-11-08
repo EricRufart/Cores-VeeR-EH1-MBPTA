@@ -21,7 +21,7 @@
 //
 //
 //  Bank3 : Bank2 : Bank1 : Bank0
-//  FA  C       8       4       0
+//  FA  C       8       4       0permutation_o
 //********************************************************************************
 
 module ifu_bp_ctl
@@ -62,10 +62,10 @@ module ifu_bp_ctl
    input rets_pkt_t exu_rets_e4_pkt, // EX4 rets packet
 
 `ifdef REAL_COMM_RS
-   input logic [31:1] exu_i0_pc_e1_i, // Used for RS computation
-   input logic [31:1] exu_i1_pc_e1_i, // Used for RS computation
-   input logic [31:1] dec_tlu_i0_pc_e4_i,  // Used for RS computation
-   input logic [31:1] dec_tlu_i1_pc_e4_i,  // Used for RS computation
+   input logic [31:1] exu_i0_pc_e1, // Used for RS computation
+   input logic [31:1] exu_i1_pc_e1, // Used for RS computation
+   input logic [31:1] dec_tlu_i0_pc_e4,  // Used for RS computation
+   input logic [31:1] dec_tlu_i1_pc_e4,  // Used for RS computation
 `endif
 
    input logic [`RV_BHT_GHR_RANGE] exu_mp_eghr, // execute ghr (for patching fghr)
@@ -268,23 +268,41 @@ module ifu_bp_ctl
 	 assign ifc_fetch_addr_f2h = ifc_fetch_addr_f2_i;
 
 `else
-			hash_same_size #(.SIZE (31))	faf1hash (
+/*			hash_same_size #(.SIZE (28))	faf1hash (
         .*,
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
-        .addr_i       (ifc_fetch_addr_f1_i[31:1]),
-        .line_index_o (ifc_fetch_addr_f1h[31:1])
+        .addr_i       (ifc_fetch_addr_f1_i[31:4]),
+        .line_index_o (ifc_fetch_addr_f1h[31:4])
     );
 
-		hash_same_size #(.SIZE (31)) faf2hash (
+		hash_same_size #(.SIZE (28)) faf2hash (
         .*,
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
-        .addr_i       (ifc_fetch_addr_f2_i[31:1]),
-        .line_index_o (ifc_fetch_addr_f2h[31:1])
+        .addr_i       (ifc_fetch_addr_f2_i[31:4]),
+        .line_index_o (ifc_fetch_addr_f2h[31:4])
+    );*/
+
+		random_modulo4 faf1hash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (ifc_fetch_addr_f1_i[31:4]),
+        .permutation_o (ifc_fetch_addr_f1h[7:4])
+    );
+
+		random_modulo4 faf2hash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (ifc_fetch_addr_f2_i[31:4]),
+        .permutation_o (ifc_fetch_addr_f2h[7:4])
     );
    assign ifc_fetch_addr_f1 = ifc_fetch_addr_f1_i;
 	 assign ifc_fetch_addr_f2 = ifc_fetch_addr_f2_i;
+   assign ifc_fetch_addr_f1h[3:1] = ifc_fetch_addr_f1_i[3:1];
+	 assign ifc_fetch_addr_f2h[3:1] = ifc_fetch_addr_f2_i[3:1];
 
 
 /*		
@@ -913,8 +931,31 @@ end // block: LRU_rd_mux
    assign btb_lru_rd_f2[2] = use_mp_way[2] ? exu_mp_way_f : |(fetch_wrindex_dec[LRU_SIZE-1:0] & btb_lru_b2_f[LRU_SIZE-1:0]);
    assign btb_lru_rd_f2[3] = use_mp_way[3] ? exu_mp_way_f : |(fetch_wrindex_dec[LRU_SIZE-1:0] & btb_lru_b3_f[LRU_SIZE-1:0]);
 
+`ifndef RV_RANDOMIZED_BTB_LRU
    assign way_raw[7:0] =  tag_match_way1_expanded_f2[7:0] | (~wayhit_f2[7:0] & {{2{btb_lru_rd_f2[3]}}, {2{btb_lru_rd_f2[2]}}, {2{btb_lru_rd_f2[1]}}, {2{btb_lru_rd_f2[0]}}});
+`else   
+ logic[63:0] seed;
+`ifndef SYNTHESIS
+     longint rand_way_seed;
+     initial begin
+        if($value$plusargs("btb_way_seed=%d", rand_way_seed)) begin
+            seed = rand_way_seed;
+        end else begin
+            seed = '0;
+        end
+     end 
+`else
+    // Not in sim, hardcide it to 0
+    assign seed = '0;
+`endif //SYNTHESIS
+    // Randomize the way status using a LFSR
+		logic[3:0] lfsrout;
+		logic[15:0] lfsrlong;
+    lfsr_prng #(16) lfsr (.*, .seed_i(seed), .clk(active_clk), .output_number_o(lfsrlong));
+		assign lfsrout = {lfsrlong[15], lfsrlong[10], lfsrlong[6], lfsrlong[0]};
 
+	 assign way_raw[7:0] =  tag_match_way1_expanded_f2[7:0] | (~wayhit_f2[7:0] & {{2{lfsrout[3]}}, {2{lfsrout[2]}}, {2{lfsrout[1]}}, {2{lfsrout[0]}}});
+`endif
    rvdffe #(LRU_SIZE*4) btb_lru_ff (.*, .en(ifc_fetch_req_f2 | exu_mp_valid),
                                    .din({btb_lru_b0_ns[(LRU_SIZE)-1:0],
                                          btb_lru_b1_ns[(LRU_SIZE)-1:0],
@@ -1792,6 +1833,8 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
                                                }),
                                  .dout       ({bht_bank0_rd_data_f2   [1:0],
                                                bht_bank1_rd_data_f2   [1:0],
+
+
                                                bht_bank2_rd_data_f2   [1:0],
                                                bht_bank3_rd_data_f2   [1:0],
                                                bht_bank4_rd_data_f2   [1:0],

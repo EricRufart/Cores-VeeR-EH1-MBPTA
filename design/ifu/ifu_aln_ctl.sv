@@ -988,35 +988,66 @@ logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
 	assign fourthpcrand = fourthpc; 
 
 `else
-			hash_same_size #(.SIZE (31))	f1pchash (
+		/*	hash_same_size #(.SIZE (28))	f1pchash (
         .*,
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
-        .addr_i       (firstpc[31:1]),
-        .line_index_o (firstpcrand[31:1])
+        .addr_i       (firstpc[31:4]),
+        .line_index_o (firstpcrand[31:4])
     );
-			hash_same_size #(.SIZE (31))	f2pchash (
+			hash_same_size #(.SIZE (28))	f2pchash (
         .*,
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
-        .addr_i       (secondpc[31:1]),
-        .line_index_o (secondpcrand[31:1])
+        .addr_i       (secondpc[31:4]),
+        .line_index_o (secondpcrand[31:4])
     );
-			hash_same_size #(.SIZE (31))	f3pchash (
+			hash_same_size #(.SIZE (28))	f3pchash (
         .*,
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
-        .addr_i       (thirdpc[31:1]),
-        .line_index_o (thirdpcrand[31:1])
+        .addr_i       (thirdpc[31:4]),
+        .line_index_o (thirdpcrand[31:4])
     );
-			hash_same_size #(.SIZE (31))	f4pchash (
+			hash_same_size #(.SIZE (28))	f4pchash (
         .*,
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
-        .addr_i       (fourthpc[31:1]),
-        .line_index_o (fourthpcrand[31:1])
+        .addr_i       (fourthpc[31:4]),
+        .line_index_o (fourthpcrand[31:4])
+    ); */
+			random_modulo4 f1pchash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (firstpc[31:4]),
+        .permutation_o (firstpcrand[7:4])
     );
-
+			random_modulo4 f2pchash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (secondpc[31:4]),
+        .permutation_o (secondpcrand[7:4])
+    );
+			random_modulo4 f3pchash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (thirdpc[31:4]),
+        .permutation_o (thirdpcrand[7:4])
+    );
+			random_modulo4 f4pchash (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (fourthpc[31:4]),
+        .permutation_o (fourthpcrand[7:4])
+    );
+	assign firstpcrand[3:1]  = firstpc[3:1];
+	assign secondpcrand[3:1] = secondpc[3:1]; 
+	assign thirdpcrand[3:1]  = thirdpc[3:1]; 
+	assign fourthpcrand[3:1] = fourthpc[3:1]; 
 `endif
 
    rvbtb_addr_hash firsthash(.pc(firstpcrand[31:1]), .hash(firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
@@ -1030,6 +1061,12 @@ logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
    rvbtb_tag_hash second_brhash(.pc(secondpc[31:1]), .hash(secondbrtag_hash[`RV_BTB_BTAG_SIZE-1:0]));
    rvbtb_tag_hash third_brhash(.pc(thirdpc[31:1]), .hash(thirdbrtag_hash[`RV_BTB_BTAG_SIZE-1:0]));
    rvbtb_tag_hash fourth_brhash(.pc(fourthpc[31:1]), .hash(fourthbrtag_hash[`RV_BTB_BTAG_SIZE-1:0]));
+
+	 logic[31:0] hash_counter0, hash_counter1, hash_counter2, hash_counter3;
+	 rvdffe #(32) hc0 (.*, .en(firstpc_hash == 2'b00), .din(hash_counter0 + 1), .dout(hash_counter0));
+	 rvdffe #(32) hc1 (.*, .en(firstpc_hash == 2'b01), .din(hash_counter1 + 1), .dout(hash_counter1));
+	 rvdffe #(32) hc2 (.*, .en(firstpc_hash == 2'b10), .din(hash_counter2 + 1), .dout(hash_counter2));
+	 rvdffe #(32) hc3 (.*, .en(firstpc_hash == 2'b11), .din(hash_counter3 + 1), .dout(hash_counter3));
 
    // start_indexing - you want pc to be based on where the end of branch is prediction
    // normal indexing pc based that's incorrect now for pc4 cases it's pc4 + 2
@@ -1071,10 +1108,11 @@ logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
 
       i0_brp.br_start_error = i0_br_start_error;
 
-			i0_brp.index[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO] = (first2B | alignbrend[0]) ? firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]:
-																																				secondpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO];
+		 	i0_brp.index[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO] = (first2B | alignbrend[0]) ? firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]:
+                                                                                  secondpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO];
 
-      i0_brp.btag[`RV_BTB_BTAG_SIZE-1:0] = firstbrtag_hash[`RV_BTB_BTAG_SIZE-1:0];
+			i0_brp.btag[`RV_BTB_BTAG_SIZE-1:0] = (first2B | alignbrend[0]) ? firstbrtag_hash[`RV_BTB_BTAG_SIZE-1:0]:
+                                                                       secondbrtag_hash[`RV_BTB_BTAG_SIZE-1:0];
 
       i0_brp.bank[1:0] = (first2B | alignbrend[0]) ? firstpc[3:2] :
                                                      secondpc[3:2];

@@ -397,38 +397,14 @@ module rvbtb_tag_hash (
                        input logic [31:1] pc,
                        output logic [`RV_BTB_BTAG_SIZE-1:0] hash
                        );
- logic[31:0] seed;
-`ifndef SYNTHESIS
-     int rand_way_seed;
-     initial begin
-        if($value$plusargs("btb_seed=%d", rand_way_seed)) begin
-            seed = rand_way_seed;
-        end else begin
-            seed = '0;
-        end
-     end 
-`else
-    // Not in sim, hardcide it to 0
-    assign seed = '0;
-`endif //SYNTHESIS
-
-											 
-											 
-logic [31:1] pcin;
-`ifdef RV_RANDOMIZED_BTB
-	assign pcin = pc ^ seed[31:1];
-`else
-	assign pcin = pc;
-`endif
-
 `ifndef RV_BTB_BTAG_FOLD
-    assign hash = {(pcin[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE+1] ^
-                   pcin[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+1] ^
-                   pcin[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+1])};
+    assign hash = {(pc[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE+1] ^
+                   pc[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+1] ^
+                   pc[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+1])};
 `else
     assign hash = {(
-                   pcin[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+1] ^
-                   pcin[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+1])};
+                   pc[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE+1] ^
+                   pc[`RV_BTB_ADDR_HI+`RV_BTB_BTAG_SIZE:`RV_BTB_ADDR_HI+1])};
 `endif
 
 //  assign hash = {pc[`RV_BTB_ADDR_HI+1],(pc[`RV_BTB_ADDR_HI+13:`RV_BTB_ADDR_HI+10] ^
@@ -441,36 +417,14 @@ module rvbtb_addr_hash (
                         input logic [31:1] pc,
                         output logic [`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO] hash
                         );
-logic[31:0] seed;
-`ifndef SYNTHESIS
-     int rand_way_seed;
-     initial begin
-        if($value$plusargs("btb_seed=%d", rand_way_seed)) begin
-            seed = rand_way_seed;
-        end else begin
-            seed = '0;
-        end
-     end 
-`else
-    // Not in sim, hardcide it to 0
-    assign seed = '0;
-`endif //SYNTHESIS
 
-
-logic [31:1] pcin;
-`ifdef RV_RANDOMIZED_BTB
-	assign pcin = pc ^ seed[31:1];
-`else
-	assign pcin = pc;
-`endif
- 
-assign hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO] = pcin[`RV_BTB_INDEX1_HI:`RV_BTB_INDEX1_LO] ^
+assign hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO] = pc[`RV_BTB_INDEX1_HI:`RV_BTB_INDEX1_LO] ^
 
 `ifndef RV_BTB_FOLD2_INDEX_HASH
-                                                  pcin[`RV_BTB_INDEX2_HI:`RV_BTB_INDEX2_LO] ^
+                                                  pc[`RV_BTB_INDEX2_HI:`RV_BTB_INDEX2_LO] ^
 `endif
 
-                                                  pcin[`RV_BTB_INDEX3_HI:`RV_BTB_INDEX3_LO];
+                                                  pc[`RV_BTB_INDEX3_HI:`RV_BTB_INDEX3_LO];
 
 endmodule
 
