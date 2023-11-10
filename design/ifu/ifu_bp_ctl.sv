@@ -938,7 +938,7 @@ end // block: LRU_rd_mux
 `ifndef SYNTHESIS
      longint rand_way_seed;
      initial begin
-        if($value$plusargs("btb_way_seed=%d", rand_way_seed)) begin
+        if($value$plusargs("btb_seed=%d", rand_way_seed)) begin
             seed = rand_way_seed;
         end else begin
             seed = '0;

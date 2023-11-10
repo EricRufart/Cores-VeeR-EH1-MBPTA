@@ -866,7 +866,7 @@ module random_modulo2 #(
 `ifndef SYNTHESIS
 	 initial begin
 	    longint hash_seed;
-	    if($value$plusargs("btb_bank_seed=%d", hash_seed)) begin
+	    if($value$plusargs("btb_seed=%d", hash_seed)) begin
 				lfsr_seed = hash_seed;
 				random_number_w = hash_seed[31:0];
 				prng_out = hash_seed[31:0];
