@@ -848,6 +848,9 @@ module pbox
 
     
 endmodule
+
+
+
 module random_modulo2 #(
         parameter integer TAG_SIZE = 10
     )
@@ -884,7 +887,7 @@ module random_modulo2 #(
    lfsr_prng #(32) lfsr (.*, .clk(clk_i), .output_number_o(prng_out), .seed_i(lfsr_seed));
    rvdffs #(32) key_reg (.*,.clk(clk_i), .din (prng_out), .dout(random_number_w), .en(randomize_i | !rst_ff));
    
-	 logic c00,c01, c02, c03 ,c10, c11, c12, c13, c20,c21, c22, c23;
+	 logic c00,c01;
 	 logic key;
 	 logic[31:0] xor0;
 	 logic[15:0] xor1;

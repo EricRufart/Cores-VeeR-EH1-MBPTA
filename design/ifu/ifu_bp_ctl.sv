@@ -268,21 +268,7 @@ module ifu_bp_ctl
 	 assign ifc_fetch_addr_f2h = ifc_fetch_addr_f2_i;
 
 `else
-/*			hash_same_size #(.SIZE (28))	faf1hash (
-        .*,
-        .clk_i        (active_clk),
-        .randomize_i  (1'b0),
-        .addr_i       (ifc_fetch_addr_f1_i[31:4]),
-        .line_index_o (ifc_fetch_addr_f1h[31:4])
-    );
 
-		hash_same_size #(.SIZE (28)) faf2hash (
-        .*,
-        .clk_i        (active_clk),
-        .randomize_i  (1'b0),
-        .addr_i       (ifc_fetch_addr_f2_i[31:4]),
-        .line_index_o (ifc_fetch_addr_f2h[31:4])
-    );*/
 
 		random_modulo4 faf1hash (
         .*,
