@@ -1473,7 +1473,7 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
    assign btb_valid = exu_mp_valid & ~dec_tlu_error_wb;
 
    assign btb_wr_tag[`RV_BTB_BTAG_SIZE-1:0] = exu_mp_btag[`RV_BTB_BTAG_SIZE-1:0];
-   rvbtb_tag_hash rdtagf1(.hash(fetch_rd_tag_f1[`RV_BTB_BTAG_SIZE-1:0]), .pc({ifc_fetch_addr_f1h[31:4], 3'b0}));
+   rvbtb_tag_hash rdtagf1(.hash(fetch_rd_tag_f1[`RV_BTB_BTAG_SIZE-1:0]), .pc({ifc_fetch_addr_f1[31:`RV_BTB_ADDR_HI+1], ifc_fetch_addr_f1h[`RV_BTB_ADDR_HI:4], 3'b0}));
    rvdff #(`RV_BTB_BTAG_SIZE) rdtagf (.*, .clk(active_clk), .din({fetch_rd_tag_f1[`RV_BTB_BTAG_SIZE-1:0]}), .dout({fetch_rd_tag_f2[`RV_BTB_BTAG_SIZE-1:0]}));
 
    assign btb_wr_data[16+`RV_BTB_BTAG_SIZE:0] = {btb_wr_tag[`RV_BTB_BTAG_SIZE-1:0], exu_mp_tgt[11:0], exu_mp_pc4, exu_mp_boffset, exu_mp_call | exu_mp_ja, exu_mp_ret | exu_mp_ja, btb_valid} ;
