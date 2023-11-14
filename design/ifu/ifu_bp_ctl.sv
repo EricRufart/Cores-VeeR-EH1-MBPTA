@@ -912,13 +912,14 @@ end // block: LRU_rd_mux
                                           (mp_wrlru_b3[LRU_SIZE-1:0] & {LRU_SIZE{~exu_mp_way}}) |
                                           (fetch_wrlru_b3[LRU_SIZE-1:0] & {LRU_SIZE{tag_match_way0_f2[3]}}) );
 
+
+`ifndef RV_RANDOMIZED_BTB
+
    assign btb_lru_rd_f2[0] = use_mp_way[0] ? exu_mp_way_f : |(fetch_wrindex_dec[LRU_SIZE-1:0] & btb_lru_b0_f[LRU_SIZE-1:0]);
    assign btb_lru_rd_f2[1] = use_mp_way[1] ? exu_mp_way_f : |(fetch_wrindex_dec[LRU_SIZE-1:0] & btb_lru_b1_f[LRU_SIZE-1:0]);
    assign btb_lru_rd_f2[2] = use_mp_way[2] ? exu_mp_way_f : |(fetch_wrindex_dec[LRU_SIZE-1:0] & btb_lru_b2_f[LRU_SIZE-1:0]);
    assign btb_lru_rd_f2[3] = use_mp_way[3] ? exu_mp_way_f : |(fetch_wrindex_dec[LRU_SIZE-1:0] & btb_lru_b3_f[LRU_SIZE-1:0]);
 
-`ifndef RV_RANDOMIZED_BTB
-   assign way_raw[7:0] =  tag_match_way1_expanded_f2[7:0] | (~wayhit_f2[7:0] & {{2{btb_lru_rd_f2[3]}}, {2{btb_lru_rd_f2[2]}}, {2{btb_lru_rd_f2[1]}}, {2{btb_lru_rd_f2[0]}}});
 `else   
  logic[63:0] seed;
 `ifndef SYNTHESIS
@@ -934,15 +935,26 @@ end // block: LRU_rd_mux
     // Not in sim, hardcide it to 0
     assign seed = '0;
 `endif //SYNTHESIS
-    // Randomize the way status using a LFSR
+
+// Randomize the way status using a LFSR
 		logic[3:0] lfsrout;
 		logic[15:0] lfsrlong;
     lfsr_prng #(16) lfsr (.*, .seed_i(seed), .clk(active_clk), .output_number_o(lfsrlong));
-		assign lfsrout = {lfsrlong[15], lfsrlong[10], lfsrlong[6], lfsrlong[0]};
+	
+   assign btb_lru_rd_f2[0] = use_mp_way[0] ? exu_mp_way_f : lfsrout[0];
+   assign btb_lru_rd_f2[1] = use_mp_way[1] ? exu_mp_way_f : lfsrout[1];
+   assign btb_lru_rd_f2[2] = use_mp_way[2] ? exu_mp_way_f : lfsrout[2];
+   assign btb_lru_rd_f2[3] = use_mp_way[3] ? exu_mp_way_f : lfsrout[3];
+	 assign lfsrout = {lfsrlong[15], lfsrlong[10], lfsrlong[6], lfsrlong[0]};
 
-	 assign way_raw[7:0] =  tag_match_way1_expanded_f2[7:0] | (~wayhit_f2[7:0] & {{2{lfsrout[3]}}, {2{lfsrout[2]}}, {2{lfsrout[1]}}, {2{lfsrout[0]}}});
+
 `endif
-   rvdffe #(LRU_SIZE*4) btb_lru_ff (.*, .en(ifc_fetch_req_f2 | exu_mp_valid),
+ 
+
+
+
+   assign way_raw[7:0] =  tag_match_way1_expanded_f2[7:0] | (~wayhit_f2[7:0] & {{2{btb_lru_rd_f2[3]}}, {2{btb_lru_rd_f2[2]}}, {2{btb_lru_rd_f2[1]}}, {2{btb_lru_rd_f2[0]}}});
+  rvdffe #(LRU_SIZE*4) btb_lru_ff (.*, .en(ifc_fetch_req_f2 | exu_mp_valid),
                                    .din({btb_lru_b0_ns[(LRU_SIZE)-1:0],
                                          btb_lru_b1_ns[(LRU_SIZE)-1:0],
                                          btb_lru_b2_ns[(LRU_SIZE)-1:0],
@@ -1473,7 +1485,7 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
    assign btb_valid = exu_mp_valid & ~dec_tlu_error_wb;
 
    assign btb_wr_tag[`RV_BTB_BTAG_SIZE-1:0] = exu_mp_btag[`RV_BTB_BTAG_SIZE-1:0];
-   rvbtb_tag_hash rdtagf1(.hash(fetch_rd_tag_f1[`RV_BTB_BTAG_SIZE-1:0]), .pc({ifc_fetch_addr_f1[31:`RV_BTB_ADDR_HI+1], ifc_fetch_addr_f1h[`RV_BTB_ADDR_HI:4], 3'b0}));
+   rvbtb_tag_hash rdtagf1(.hash(fetch_rd_tag_f1[`RV_BTB_BTAG_SIZE-1:0]), .pc({ifc_fetch_addr_f1[31:`RV_BTB_ADDR_HI+1], ifc_fetch_addr_f1[`RV_BTB_ADDR_HI:4], 3'b0}));
    rvdff #(`RV_BTB_BTAG_SIZE) rdtagf (.*, .clk(active_clk), .din({fetch_rd_tag_f1[`RV_BTB_BTAG_SIZE-1:0]}), .dout({fetch_rd_tag_f2[`RV_BTB_BTAG_SIZE-1:0]}));
 
    assign btb_wr_data[16+`RV_BTB_BTAG_SIZE:0] = {btb_wr_tag[`RV_BTB_BTAG_SIZE-1:0], exu_mp_tgt[11:0], exu_mp_pc4, exu_mp_boffset, exu_mp_call | exu_mp_ja, exu_mp_ret | exu_mp_ja, btb_valid} ;
