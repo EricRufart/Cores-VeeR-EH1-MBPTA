@@ -1045,12 +1045,40 @@ logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
         .permutation_o (fourthpcrand[7:4])
     );
 
+			random_modulo2 f1bank (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (firstpc[31:2]),
+        .permutation_o (firstpcrand[3:2])
+    );
+			random_modulo2 f2bank (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (secondpc[31:2]),
+        .permutation_o (secondpcrand[3:2])
+    );
+			random_modulo2 f3bank (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (thirdpc[31:2]),
+        .permutation_o (thirdpcrand[3:2])
+    );
+			random_modulo2 f4bank (
+        .*,
+        .clk_i        (active_clk),
+        .randomize_i  (1'b0),
+        .addr_i       (fourthpc[31:2]),
+        .permutation_o (fourthpcrand[3:2])
+    );
 		
 
-	assign firstpcrand[3:1]  = firstpc[3:1];
-	assign secondpcrand[3:1] = secondpc[3:1]; 
-	assign thirdpcrand[3:1]  = thirdpc[3:1]; 
-	assign fourthpcrand[3:1] = fourthpc[3:1]; 
+	assign firstpcrand[1:1]  = firstpc[1:1];
+	assign secondpcrand[1:1] = secondpc[1:1]; 
+	assign thirdpcrand[1:1]  = thirdpc[1:1]; 
+	assign fourthpcrand[1:1] = fourthpc[1:1]; 
 `endif
 
    rvbtb_addr_hash firsthash(.pc(firstpcrand[31:1]), .hash(firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));
@@ -1116,8 +1144,8 @@ logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
 
 			i0_brp.btag[`RV_BTB_BTAG_SIZE-1:0] = (first2B | alignbrend[0]) ? firstbrtag_hash[`RV_BTB_BTAG_SIZE-1:0]:
                                                                        secondbrtag_hash[`RV_BTB_BTAG_SIZE-1:0];
-      i0_brp.bank[1:0] = (first2B | alignbrend[0]) ? firstpc[3:2] :
-                                                     secondpc[3:2];
+      i0_brp.bank[1:0] = (first2B | alignbrend[0]) ? firstpcrand[3:2] :
+                                                     secondpcrand[3:2];
 
 																										
       i0_brp.br_error = (i0_brp.valid &  i0_brp_pc4 &  first2B) |
@@ -1196,12 +1224,12 @@ logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
                                            ({`RV_BTB_BTAG_SIZE{first2B & second2B}}                  & secondbrtag_hash[`RV_BTB_BTAG_SIZE-1:0] ) |
                                            ({`RV_BTB_BTAG_SIZE{first2B & second4B &  alignbrend[1]}} & secondbrtag_hash[`RV_BTB_BTAG_SIZE-1:0] ) |
                                            ({`RV_BTB_BTAG_SIZE{first2B & second4B & ~alignbrend[1]}} &  thirdbrtag_hash[`RV_BTB_BTAG_SIZE-1:0] );
-		 i1_brp.bank[1:0] = ({2{first4B & third2B }}                  & thirdpc[3:2] ) |
-                         ({2{first4B & third4B &  alignbrend[2] }} & thirdpc[3:2] ) |
-                         ({2{first4B & third4B & ~alignbrend[2] }} & fourthpc[3:2] ) |
-                         ({2{first2B & second2B}}                  & secondpc[3:2] ) |
-                         ({2{first2B & second4B &  alignbrend[1]}} & secondpc[3:2] ) |
-                         ({2{first2B & second4B & ~alignbrend[1]}} & thirdpc[3:2] );
+		 i1_brp.bank[1:0] = ({2{first4B & third2B }}                  & thirdpcrand[3:2] ) |
+                         ({2{first4B & third4B &  alignbrend[2] }} & thirdpcrand[3:2] ) |
+                         ({2{first4B & third4B & ~alignbrend[2] }} & fourthpcrand[3:2] ) |
+                         ({2{first2B & second2B}}                  & secondpcrand[3:2] ) |
+                         ({2{first2B & second4B &  alignbrend[1]}} & secondpcrand[3:2] ) |
+                         ({2{first2B & second4B & ~alignbrend[1]}} & thirdpcrand[3:2] );
 
 
       i1_brp.br_error = (i1_brp.valid &  i1_brp_pc4 & first4B & third2B ) |
