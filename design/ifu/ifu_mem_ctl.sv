@@ -636,9 +636,9 @@ rvdffs #(4) ic_wren_copy (.*,
                                  (~tagv_mb_ff[0] ) ;
 `else
 		// Fetch a seed for the LFSR
-    logic[63:0] seed;
+    logic[31:0] seed;
 `ifndef SYNTHESIS
-     longint rand_way_seed;
+     int rand_way_seed;
      initial begin
         if($value$plusargs("way_seed=%d", rand_way_seed)) begin
             seed = rand_way_seed;

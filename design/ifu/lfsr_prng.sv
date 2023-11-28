@@ -27,7 +27,7 @@ module lfsr_prng
     ) (
         input  logic            clk ,
         input  logic            rst_l,
-        input  logic [63:0]     seed_i,
+        input  logic [31:0]     seed_i,
         output logic [SIZE-1:0] output_number_o
     );
 
@@ -36,11 +36,11 @@ module lfsr_prng
     // taps = 64,63,61,60
     logic [63:0] lfsr, lfsr_next;
     logic newbit;
-`ifndef SYNTHESIS
+/*`ifndef SYNTHESIS
 	 initial begin
 			lfsr = seed_i;
 	 end
-`endif
+`endif*/
     always_ff @(posedge clk or negedge rst_l) begin
         if (rst_l == 0)
           lfsr <= {seed_i[8:2], seed_i[31:17], seed_i[12:3] ,seed_i[31:0]};

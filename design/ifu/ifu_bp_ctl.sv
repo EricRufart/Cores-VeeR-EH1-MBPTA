@@ -905,9 +905,9 @@ end // block: LRU_rd_mux
    assign btb_lru_rd_f2[3] = use_mp_way[3] ? exu_mp_way_f : |(fetch_wrindex_dec[LRU_SIZE-1:0] & btb_lru_b3_f[LRU_SIZE-1:0]);
 
 `else   
- logic[63:0] seed;
+ logic[31:0] seed;
 `ifndef SYNTHESIS
-     longint rand_way_seed;
+     int rand_way_seed;
      initial begin
         if($value$plusargs("btb_seed=%d", rand_way_seed)) begin
             seed = rand_way_seed;
