@@ -894,9 +894,9 @@ module unrandom_modulo2 #(
 	
 	 assign xor0 = {addr_i[31:4] ^ random_number_w[31:4], random_number_w[3:0]};
 	 assign xor1 = xor0[31:16] ^ xor0[15:0];
-	 assign xor2 = xor0[15:8] ^ xor0[7:0];
-	 assign xor3 = xor0[7:4] ^ xor0[3:0];
-	 assign xor4 = xor0[3:2] ^ xor0[1:0];
+	 assign xor2 = xor1[15:8] ^ xor1[7:0];
+	 assign xor3 = xor2[7:4] ^ xor2[3:0];
+	 assign xor4 = xor3[3:2] ^ xor3[1:0];
    assign key = xor4[1] ^ xor4[0];
 
    pbox p0 (.a(1'b0), .b(1'b0), .drive(key), .c(num0[0]), .d(num0[1]));
@@ -904,10 +904,10 @@ module unrandom_modulo2 #(
    pbox p2 (.a(1'b1), .b(1'b0), .drive(key), .c(num2[0]), .d(num2[1]));
    pbox p3 (.a(1'b1), .b(1'b1), .drive(key), .c(num3[0]), .d(num3[1]));
 
-	 assign permutation_o[0] = num0 - xor0[1:0];
-	 assign permutation_o[1] = num1 - xor0[1:0];
-	 assign permutation_o[2] = num2 - xor0[1:0];
-	 assign permutation_o[3] = num3 - xor0[1:0];
+	 assign permutation_o[0] = num0 - xor1[1:0];
+	 assign permutation_o[1] = num1 - xor1[1:0];
+	 assign permutation_o[2] = num2 - xor1[1:0];
+	 assign permutation_o[3] = num3 - xor1[1:0];
     
 endmodule
 
@@ -959,11 +959,11 @@ module random_modulo2 #(
 	
 	 assign xor0 = {addr_i[31:4] ^ random_number_w[31:4], random_number_w[3:0]};
 	 assign xor1 = xor0[31:16] ^ xor0[15:0];
-	 assign xor2 = xor0[15:8] ^ xor0[7:0];
-	 assign xor3 = xor0[7:4] ^ xor0[3:0];
-	 assign xor4 = xor0[3:2] ^ xor0[1:0];
+	 assign xor2 = xor1[15:8] ^ xor1[7:0];
+	 assign xor3 = xor2[7:4] ^ xor2[3:0];
+	 assign xor4 = xor3[3:2] ^ xor3[1:0];
    assign key = xor4[1] ^ xor4[0];
-	 assign num = addr_i[3:2] + xor0[1:0];
+	 assign num = addr_i[3:2] + xor1[1:0];
 
    pbox p00 (.a(num[0]), .b(num[1]), .drive(key), .c(c00), .d(c01));
 
