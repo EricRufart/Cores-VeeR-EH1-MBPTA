@@ -883,7 +883,7 @@ module unrandom_modulo2 #(
 
    lfsr_prng #(32) lfsr (.*, .clk(clk_i), .output_number_o(prng_out), .seed_i(lfsr_seed));
    rvdffs #(32) key_reg (.*,.clk(clk_i), .din (prng_out), .dout(random_number_w), .en(randomize_i | !rst_ff));
-   
+   logic [3:0][1:0] inputs;
 	 logic key;
 	 logic[31:0] xor0;
 	 logic[15:0] xor1;
@@ -898,16 +898,19 @@ module unrandom_modulo2 #(
 	 assign xor3 = xor2[7:4] ^ xor2[3:0];
 	 assign xor4 = xor3[3:2] ^ xor3[1:0];
    assign key = xor4[1] ^ xor4[0];
+	 assign inputs[0] = 2'b00 + xor4[1:0];
+	 assign inputs[1] = 2'b01 + xor4[1:0];
+	 assign inputs[2] = 2'b10 + xor4[1:0];
+	 assign inputs[3] = 2'b11 + xor4[1:0];
+   pbox p0 (.a(inputs[0][0]), .b(inputs[0][1]), .drive(key), .c(num0[1]), .d(num0[0]));
+   pbox p1 (.a(inputs[1][0]), .b(inputs[1][1]), .drive(key), .c(num1[1]), .d(num1[0]));
+   pbox p2 (.a(inputs[2][0]), .b(inputs[2][1]), .drive(key), .c(num2[1]), .d(num2[0]));
+   pbox p3 (.a(inputs[3][0]), .b(inputs[3][1]), .drive(key), .c(num3[1]), .d(num3[0]));
 
-   pbox p0 (.a(1'b0), .b(1'b0), .drive(key), .c(num0[0]), .d(num0[1]));
-   pbox p1 (.a(1'b0), .b(1'b1), .drive(key), .c(num1[0]), .d(num1[1]));
-   pbox p2 (.a(1'b1), .b(1'b0), .drive(key), .c(num2[0]), .d(num2[1]));
-   pbox p3 (.a(1'b1), .b(1'b1), .drive(key), .c(num3[0]), .d(num3[1]));
-
-	 assign permutation_o[0] = num0 - xor1[1:0];
-	 assign permutation_o[1] = num1 - xor1[1:0];
-	 assign permutation_o[2] = num2 - xor1[1:0];
-	 assign permutation_o[3] = num3 - xor1[1:0];
+	 assign permutation_o[0] = num0;
+	 assign permutation_o[1] = num1;
+	 assign permutation_o[2] = num2;
+	 assign permutation_o[3] = num3;
     
 endmodule
 
@@ -963,7 +966,7 @@ module random_modulo2 #(
 	 assign xor3 = xor2[7:4] ^ xor2[3:0];
 	 assign xor4 = xor3[3:2] ^ xor3[1:0];
    assign key = xor4[1] ^ xor4[0];
-	 assign num = addr_i[3:2] + xor1[1:0];
+	 assign num = addr_i[3:2] + xor4[1:0];
 
    pbox p00 (.a(num[0]), .b(num[1]), .drive(key), .c(c00), .d(c01));
 
