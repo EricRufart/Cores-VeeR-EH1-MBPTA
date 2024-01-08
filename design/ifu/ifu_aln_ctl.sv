@@ -1045,7 +1045,7 @@ logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
         .permutation_o (fourthpcrand[7:4])
     );
 
-			random_modulo2 f1bank (
+	/*		random_modulo2 f1bank (
         .*,
         .clk_i        (active_clk),
         .randomize_i  (1'b0),
@@ -1072,13 +1072,13 @@ logic [31:1] firstpcrand, secondpcrand, thirdpcrand, fourthpcrand;
         .randomize_i  (1'b0),
         .addr_i       (fourthpc[31:2]),
         .permutation_o (fourthpcrand[3:2])
-    );
+    );*/
 		
 
-	assign firstpcrand[1:1]  = firstpc[1:1];
-	assign secondpcrand[1:1] = secondpc[1:1]; 
-	assign thirdpcrand[1:1]  = thirdpc[1:1]; 
-	assign fourthpcrand[1:1] = fourthpc[1:1]; 
+	assign firstpcrand[3:1]  = firstpc[3:1];
+	assign secondpcrand[3:1] = secondpc[3:1]; 
+	assign thirdpcrand[3:1]  = thirdpc[3:1]; 
+	assign fourthpcrand[3:1] = fourthpc[3:1]; 
 `endif
 
    rvbtb_addr_hash firsthash(.pc(firstpcrand[31:1]), .hash(firstpc_hash[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO]));

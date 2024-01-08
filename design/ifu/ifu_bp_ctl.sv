@@ -1683,7 +1683,7 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
                     .dout       (btb_bank3_rd_data_way2_f2   [16+`RV_BTB_BTAG_SIZE:0]));
 `endif //  `ifdef RV_BTB_48
 
-`ifdef RV_RANDOMIZED_BTB
+/*`ifdef RV_RANDOMIZED_BTB
 		logic [3:0][1:0] unrandom; 
 			unrandom_modulo2 unrandomhash (
         .*,
@@ -1692,7 +1692,7 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
         .addr_i       (ifc_fetch_addr_f1_i[31:4]),
         .permutation_o (unrandom)
     );
-`endif
+`endif*/
 
 
     always_comb begin : BTB_rd_mux
@@ -1714,7 +1714,7 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
 `endif
         for (int j=0; j< LRU_SIZE; j++) begin
           if (btb_rd_addr_f1[`RV_BTB_ADDR_HI:`RV_BTB_ADDR_LO] == (`RV_BTB_ADDR_HI-`RV_BTB_ADDR_LO+1)'(j)) begin
-					`ifndef RV_RANDOMIZED_BTB
+					//`ifndef RV_RANDOMIZED_BTB
            btb_bank0_rd_data_way0_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  btb_bank0_rd_data_way0_out[j];
            btb_bank1_rd_data_way0_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  btb_bank1_rd_data_way0_out[j];
            btb_bank2_rd_data_way0_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  btb_bank2_rd_data_way0_out[j];
@@ -1724,7 +1724,7 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
            btb_bank1_rd_data_way1_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  btb_bank1_rd_data_way1_out[j];
            btb_bank2_rd_data_way1_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  btb_bank2_rd_data_way1_out[j];
            btb_bank3_rd_data_way1_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  btb_bank3_rd_data_way1_out[j];
-					 `else
+					/* `else
 							btb_bank0_rd_data_way0_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  ({17+`RV_BTB_BTAG_SIZE{unrandom[0]==2'b00}} & btb_bank0_rd_data_way0_out[j])
 																																		 |({17+`RV_BTB_BTAG_SIZE{unrandom[0]==2'b01}} & btb_bank1_rd_data_way0_out[j])
 																																		 |({17+`RV_BTB_BTAG_SIZE{unrandom[0]==2'b10}} & btb_bank2_rd_data_way0_out[j])
@@ -1759,12 +1759,8 @@ assign fgmask_f2[0] = (~ifc_fetch_addr_f2[3] & ~ifc_fetch_addr_f2[2]
 																																		 |({17+`RV_BTB_BTAG_SIZE{unrandom[3]==2'b01}} & btb_bank1_rd_data_way1_out[j])
 																																		 |({17+`RV_BTB_BTAG_SIZE{unrandom[3]==2'b10}} & btb_bank2_rd_data_way1_out[j])
 																																		 |({17+`RV_BTB_BTAG_SIZE{unrandom[3]==2'b11}} & btb_bank3_rd_data_way1_out[j]);
-
-
-    
-
   
-					 `endif
+					 `endif*/
 `ifdef RV_BTB_48
            btb_bank0_rd_data_way2_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  btb_bank0_rd_data_way2_out[j];
            btb_bank1_rd_data_way2_f2_in[16+`RV_BTB_BTAG_SIZE:0] =  btb_bank1_rd_data_way2_out[j];
